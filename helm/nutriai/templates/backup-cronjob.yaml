@@ -2,13 +2,21 @@
 ## Dynamically-provisioned PVC dedicated to backups (kept separate from the
 ## live postgres-data volume so a corrupted live volume can't take the
 ## backups with it).
+##
+## Sync-wave is deliberately the LAST wave (matching the CronJob), not an
+## early one: nutriai-gp3 is WaitForFirstConsumer, so this PVC has no pod to
+## bind to (and stays Pending) until the CronJob actually fires — the
+## schedule default is 02:00 UTC, hours away. ArgoCD gates every later wave
+## on the current wave reaching Healthy; an early wave number here would
+## have left this Pending PVC blocking Deployments/Services/HPAs from ever
+## syncing. Caught live on the real cluster.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-backup-data
   namespace: {{ .Values.global.namespace }}
   annotations:
-    argocd.argoproj.io/sync-wave: "-3"
+    argocd.argoproj.io/sync-wave: "2"
   labels:
     {{- include "nutriai.commonLabels" . | nindent 4 }}
 spec:
