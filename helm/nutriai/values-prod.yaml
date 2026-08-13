@@ -20,20 +20,20 @@ externalSecrets:
 # (docs/08-cicd-github-actions.md) — do not hand-edit during normal operation.
 services:
   frontend-service:
-    image: { tag: latest }
+    image: { tag: v0.1.0 }
   api-gateway-service:
-    image: { tag: latest }
+    image: { tag: v0.1.0 }
   auth-service:
-    image: { tag: latest }
+    image: { tag: v0.1.0 }
   document-service:
-    image: { tag: latest }
+    image: { tag: v0.1.0 }
   diet-service:
-    image: { tag: latest }
+    image: { tag: v0.1.0 }
   health-service:
-    image: { tag: latest }
+    image: { tag: v0.1.0 }
   notification-service:
-    image: { tag: latest }
+    image: { tag: v0.1.0 }
   profile-service:
-    image: { tag: latest }
+    image: { tag: v0.1.0 }
   admin-service:
-    image: { tag: latest }
+    image: { tag: v0.1.0 }
