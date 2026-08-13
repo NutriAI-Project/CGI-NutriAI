@@ -1,9 +1,19 @@
 {{/*
 Requires the Gateway API CRDs + the kgateway controller already installed on
 the cluster (cluster-scoped, installed once — docs/06-gateway-routing.md).
-This Gateway itself defaults to ClusterIP (no cloud LoadBalancer is created).
-Reach it via `kubectl port-forward` through the bastion tunnel, or switch
-gateway.serviceType to NodePort — see docs/06-gateway-routing.md.
+
+IMPORTANT: kgateway's generated proxy Service type is NOT controlled by an
+annotation on this Gateway — the installed Gateway API CRDs (v1, standard
+channel) don't carry `spec.infrastructure`, and kgateway has no per-Gateway
+override without it. The only mechanism here is a cluster-scoped
+GatewayParameters resource referenced from the GatewayClass's
+`spec.parametersRef` — that applies to every Gateway using this
+GatewayClass. Set it up once when you install kgateway itself
+(scripts/03-install-cluster-addons.sh does this), NOT per Helm release.
+Skipping that step means kgateway defaults to `type: LoadBalancer` and will
+provision a real, billed AWS ELB the moment this Gateway is created — see
+docs/06-gateway-routing.md for the exact commands (this was caught live:
+the first sync on the real cluster silently created one).
 */}}
 {{- if .Values.gateway.create }}
 apiVersion: gateway.networking.k8s.io/v1
@@ -13,9 +23,6 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "-3"
-    {{- if eq .Values.gateway.serviceType "ClusterIP" }}
-    networking.kgateway.dev/service-type: ClusterIP
-    {{- end }}
   labels:
     {{- include "nutriai.commonLabels" . | nindent 4 }}
 spec:

@@ -36,6 +36,26 @@ helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/k
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
   --namespace kgateway-system
 
+echo "==> kgateway default: force ClusterIP (NOT LoadBalancer)"
+# kgateway provisions a real AWS ELB by default for every Gateway's proxy
+# Service unless told otherwise, and — on this Gateway API CRD version —
+# that can only be set cluster-wide via the GatewayClass's parametersRef,
+# not per-Gateway. Do this BEFORE any Gateway is created, or you'll get a
+# real, billed LoadBalancer the moment one is.
+cat <<EOF | kubectl apply -f -
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: GatewayParameters
+metadata:
+  name: nutriai-gateway-params
+  namespace: kgateway-system
+spec:
+  kube:
+    service:
+      type: ClusterIP
+EOF
+kubectl patch gatewayclass kgateway --type=merge -p \
+  '{"spec":{"parametersRef":{"group":"gateway.kgateway.dev","kind":"GatewayParameters","name":"nutriai-gateway-params","namespace":"kgateway-system"}}}'
+
 echo "==> ArgoCD (core install, HA components trimmed for the 2-node budget)"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/core-install.yaml

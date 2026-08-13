@@ -8,6 +8,33 @@ helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/k
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway -n kgateway-system
 ```
 
+**Then, before creating any Gateway** — kgateway defaults every Gateway's
+proxy Service to `type: LoadBalancer`, which provisions a real, billed AWS
+ELB. This was caught live on the first deploy: an annotation on the Gateway
+does *not* control this on this Gateway API CRD version (no
+`spec.infrastructure` field present); the only mechanism is a cluster-scoped
+`GatewayParameters` referenced from the `GatewayClass`, applying to every
+Gateway using that class:
+
+```bash
+cat <<EOF | kubectl apply -f -
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: GatewayParameters
+metadata:
+  name: nutriai-gateway-params
+  namespace: kgateway-system
+spec:
+  kube:
+    service:
+      type: ClusterIP
+EOF
+kubectl patch gatewayclass kgateway --type=merge -p \
+  '{"spec":{"parametersRef":{"group":"gateway.kgateway.dev","kind":"GatewayParameters","name":"nutriai-gateway-params","namespace":"kgateway-system"}}}'
+```
+
+`scripts/03-install-cluster-addons.sh` now does this automatically as part
+of the kgateway install step.
+
 ## What the chart creates
 
 One `Gateway` (`nutriai-gateway`, `gatewayClassName: kgateway`, HTTP
