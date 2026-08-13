@@ -16,7 +16,7 @@ on:
       image_tag:
         description: "Image tag to build & push"
         required: true
-        default: "manual-${{ github.run_number }}"
+        default: "manual"
       environment:
         description: "Target environment"
         required: true
