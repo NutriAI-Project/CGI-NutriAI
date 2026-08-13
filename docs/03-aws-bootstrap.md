@@ -46,7 +46,7 @@ URL into `helm/nutriai/values.yaml` → `global.imageRegistry`.
 ## 3. Set up GitHub Actions → AWS via OIDC (no static keys in CI)
 
 ```bash
-GITHUB_ORG=NutriAI16-ORG GITHUB_REPO=CGI-NutriAI ./02-setup-github-oidc-role.sh
+GITHUB_ORG=NutriAI-Project GITHUB_REPO=CGI-NutriAI ./02-setup-github-oidc-role.sh
 ```
 
 Creates the GitHub OIDC provider (if missing) + an IAM role scoped to
@@ -54,7 +54,7 @@ Creates the GitHub OIDC provider (if missing) + an IAM role scoped to
 Add the printed role ARN as a repo secret:
 
 ```bash
-gh secret set AWS_GITHUB_ACTIONS_ROLE_ARN --repo NutriAI16-ORG/CGI-NutriAI --body "arn:aws:iam::<account>:role/nutriai-github-actions-role"
+gh secret set AWS_GITHUB_ACTIONS_ROLE_ARN --repo NutriAI-Project/CGI-NutriAI --body "arn:aws:iam::<account>:role/nutriai-github-actions-role"
 ```
 
 ## 4. Create the EFS filesystem (for document-service's shared PVC)

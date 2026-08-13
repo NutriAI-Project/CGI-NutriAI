@@ -11,7 +11,7 @@ metadata:
 spec:
   description: NutriAI microservices platform
   sourceRepos:
-    - "https://github.com/NutriAI16-ORG/CGI-NutriAI.git"
+    - "https://github.com/NutriAI-Project/CGI-NutriAI.git"
   destinations:
     - namespace: "nutriai-*"
       server: "https://kubernetes.default.svc"

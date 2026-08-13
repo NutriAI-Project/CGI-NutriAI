@@ -12,7 +12,7 @@ kubectl get nodes                                        # confirm 2x t3.medium
 
 cd CGI-NutriAI/scripts
 ./01-create-ecr-repos.sh                                 # 3. ECR
-GITHUB_ORG=NutriAI16-ORG GITHUB_REPO=CGI-NutriAI ./02-setup-github-oidc-role.sh   # 4. CI role
+GITHUB_ORG=NutriAI-Project GITHUB_REPO=CGI-NutriAI ./02-setup-github-oidc-role.sh   # 4. CI role
 # 5. EFS filesystem — see docs/03-aws-bootstrap.md §4, then set storage.efsFileSystemId
 CLUSTER_NAME=<cluster> ./03-install-cluster-addons.sh     # 6. CSI drivers, metrics-server, kgateway, ArgoCD, ESO
 ```
@@ -24,7 +24,7 @@ CLUSTER_NAME=<cluster> ./03-install-cluster-addons.sh     # 6. CSI drivers, metr
 global.imageRegistry: "<account-id>.dkr.ecr.us-east-1.amazonaws.com"
 storage.efsFileSystemId: "fs-..."
 
-gh secret set AWS_GITHUB_ACTIONS_ROLE_ARN --repo NutriAI16-ORG/CGI-NutriAI --body "arn:aws:iam::<account>:role/nutriai-github-actions-role"
+gh secret set AWS_GITHUB_ACTIONS_ROLE_ARN --repo NutriAI-Project/CGI-NutriAI --body "arn:aws:iam::<account>:role/nutriai-github-actions-role"
 ```
 Commit and push these two edits.
 

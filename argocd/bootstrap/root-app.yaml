@@ -14,7 +14,7 @@ metadata:
 spec:
   project: nutriai
   source:
-    repoURL: "https://github.com/NutriAI16-ORG/CGI-NutriAI.git"
+    repoURL: "https://github.com/NutriAI-Project/CGI-NutriAI.git"
     targetRevision: main
     path: argocd/apps
     directory:

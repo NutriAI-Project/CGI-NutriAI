@@ -4,10 +4,10 @@
 ## in GitHub Secrets. NOT executed automatically — review then run yourself.
 ## See docs/03-aws-bootstrap.md and docs/08-cicd-github-actions.md.
 ##
-## Usage: GITHUB_ORG=NutriAI16-ORG GITHUB_REPO=CGI-NutriAI ./02-setup-github-oidc-role.sh
+## Usage: GITHUB_ORG=NutriAI-Project GITHUB_REPO=CGI-NutriAI ./02-setup-github-oidc-role.sh
 set -euo pipefail
 
-GITHUB_ORG="${GITHUB_ORG:-NutriAI16-ORG}"
+GITHUB_ORG="${GITHUB_ORG:-NutriAI-Project}"
 GITHUB_REPO="${GITHUB_REPO:-CGI-NutriAI}"
 ROLE_NAME="${ROLE_NAME:-nutriai-github-actions-role}"
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"

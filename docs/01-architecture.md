@@ -22,7 +22,7 @@
                          └──────────┼───────────────────────────────────────┘
                                     │ watches git (this repo, main branch)
                                     ▼
-                         github.com/NutriAI16-ORG/CGI-NutriAI
+                         github.com/NutriAI-Project/CGI-NutriAI
                                     ▲
                                     │ CI pushes image + bumps values-prod.yaml
                          GitHub Actions (OIDC → ECR push)
