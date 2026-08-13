@@ -47,6 +47,10 @@ spec:
                 name: {{ $name }}-config
             - secretRef:
                 name: {{ $name }}-secret
+                # A service with no usesDb and no secretEnv keys (e.g.
+                # frontend-service) has no *-secret object under the
+                # ExternalSecrets path — don't block pod startup on it.
+                optional: true
           {{- if $svc.pvc.enabled }}
           volumeMounts:
             - name: {{ $svc.pvc.name }}
