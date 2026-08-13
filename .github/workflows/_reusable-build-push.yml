@@ -62,16 +62,20 @@ jobs:
 
       - name: Build image
         working-directory: services/${{ inputs.service-name }}
+        # No floating :latest tag — the ECR repos are IMMUTABLE (good, stops
+        # tag hijacking), which means a re-pushed :latest fails outright
+        # ("tag invalid ... cannot be overwritten") the moment it already
+        # exists. Caught live on the very first real CI run. GitOps tracks
+        # the exact version tag in values-prod.yaml anyway, so :latest was
+        # never actually consumed by anything.
         run: |
           docker build \
             -t "${{ steps.ecr-login.outputs.registry }}/nutriai/${{ inputs.service-name }}:${{ inputs.image-tag }}" \
-            -t "${{ steps.ecr-login.outputs.registry }}/nutriai/${{ inputs.service-name }}:latest" \
             .
 
       - name: Push image
         run: |
           docker push "${{ steps.ecr-login.outputs.registry }}/nutriai/${{ inputs.service-name }}:${{ inputs.image-tag }}"
-          docker push "${{ steps.ecr-login.outputs.registry }}/nutriai/${{ inputs.service-name }}:latest"
 
       - name: Bump Helm values (GitOps tag update)
         if: ${{ inputs.update-gitops-tag }}
