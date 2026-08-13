@@ -2,7 +2,7 @@
 {{- if .Values.externalSecrets.enabled }}
 ## Prod path: password comes from AWS Secrets Manager (secret
 ## nutriai/<environment>/postgres, key "password") via ESO — never committed.
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: postgres-credentials
