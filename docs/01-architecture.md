@@ -82,6 +82,33 @@ couple of services out under load. `helm/nutriai/values.yaml` keeps
 `maxReplicas` at 2–3 per service deliberately — raise it once you've
 confirmed real headroom with `kubectl top nodes`, or add a 3rd node.
 
+### The other ceiling: pods-per-node, not just CPU/memory
+
+Found live on the real cluster, not in any spreadsheet: **t3.medium hits a
+hard 17-pod-per-node cap** from the VPC CNI's default ENI/IP allocation
+(`(ENIs × (IPs per ENI − 1)) + 2`), regardless of how much CPU/memory
+headroom remains. With both nodes already at 17/17 from cluster add-ons +
+this chart's 9 services + postgres + gateway, one more pod (HPA scale-out,
+or a 10th service) has nowhere to schedule and sits `Pending` with
+`FailedScheduling: Too many pods`.
+
+- Immediate lever, no node changes: this repo scales
+  `argocd-applicationset-controller` to 0 replicas (unused — this GitOps
+  design only uses plain `Application` objects, not `ApplicationSet`) to
+  free one slot.
+- Real fix for headroom: enable **VPC CNI prefix delegation**
+  (`ENABLE_PREFIX_DELEGATION=true` on the `aws-node` DaemonSet), which
+  raises the practical per-node pod ceiling substantially. **This does not
+  take effect on already-running nodes** — the kubelet's own `--max-pods`
+  value is computed once at node bootstrap from the pre-prefix-delegation
+  instance-type table, so raising the ceiling for real means launching
+  replacement nodes (new launch template / managed-nodegroup AMI release)
+  after enabling the setting, not just flipping the DaemonSet env var on
+  the existing pair.
+- Before adding a 3rd node purely for pod headroom, try prefix delegation
+  first — CPU/memory (previous section) is usually the tighter constraint
+  on t3.medium anyway.
+
 ## Environments
 
 - **prod** (`nutriai-prod` namespace, `main` branch, manual ArgoCD sync) —

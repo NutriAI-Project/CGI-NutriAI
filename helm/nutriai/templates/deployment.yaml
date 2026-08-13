@@ -79,6 +79,15 @@ spec:
             readOnlyRootFilesystem: false
             capabilities:
               drop: ["ALL"]
+              {{- if eq $svc.tier "frontend" }}
+              # frontend-service's image sets cap_net_bind_service via `setcap`
+              # on the nginx binary so it can bind port 80 as non-root (uid 101)
+              # — dropping ALL capabilities strips that back off and nginx
+              # fails with "Operation not permitted". Caught live on the real
+              # cluster (backend services don't bind privileged ports, so they
+              # don't need this).
+              add: ["NET_BIND_SERVICE"]
+              {{- end }}
       {{- if $svc.pvc.enabled }}
       volumes:
         - name: {{ $svc.pvc.name }}
