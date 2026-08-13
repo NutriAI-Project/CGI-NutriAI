@@ -1,4 +1,37 @@
 {{- if .Values.postgres.enabled }}
+{{- if .Values.externalSecrets.enabled }}
+## Prod path: password comes from AWS Secrets Manager (secret
+## nutriai/<environment>/postgres, key "password") via ESO — never committed.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: postgres-credentials
+  namespace: {{ .Values.global.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+  labels:
+    {{- include "nutriai.commonLabels" . | nindent 4 }}
+spec:
+  refreshInterval: {{ .Values.externalSecrets.refreshInterval }}
+  secretStoreRef:
+    name: {{ .Values.externalSecrets.secretStoreRefName }}
+    kind: ClusterSecretStore
+  target:
+    name: postgres-credentials
+    creationPolicy: Owner
+    template:
+      data:
+        POSTGRES_DB: {{ .Values.postgres.credentials.database | quote }}
+        POSTGRES_USER: {{ .Values.postgres.credentials.username | quote }}
+        POSTGRES_PASSWORD: "{{ printf "{{ .password }}" }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: nutriai/{{ .Values.global.environment }}/postgres
+        property: password
+---
+{{- else }}
+## Demo path: password comes from values-secrets.yaml (git-ignored, local only)
 apiVersion: v1
 kind: Secret
 metadata:
@@ -14,6 +47,7 @@ stringData:
   POSTGRES_USER: {{ .Values.postgres.credentials.username | quote }}
   POSTGRES_PASSWORD: {{ .Values.postgres.credentials.password | quote }}
 ---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
