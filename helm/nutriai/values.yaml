@@ -48,6 +48,10 @@ storage:
   efsStorageClassName: nutriai-efs
   efsFileSystemId: "fs-067ba24a1cdb4897c"
   volumeSnapshotClassName: nutriai-ebs-snapshot
+  volumeSnapshots:
+    # Requires the external-snapshotter CRDs/controller separately from the
+    # EBS CSI driver — off by default, see templates/storageclass.yaml.
+    enabled: false
 
 backup:
   enabled: true

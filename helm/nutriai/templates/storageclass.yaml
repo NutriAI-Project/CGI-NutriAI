@@ -34,7 +34,18 @@ parameters:
   fileSystemId: {{ .Values.storage.efsFileSystemId | quote }}
   directoryPerms: "700"
   basePath: "/nutriai"
+{{- if .Values.storage.volumeSnapshots.enabled }}
 ---
+## Requires the external-snapshotter CRDs + controller (NOT installed by
+## scripts/03-install-cluster-addons.sh by default — it's a separate
+## component from the EBS CSI driver). Install it, then flip this on:
+##   kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/release-8.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+##   kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/release-8.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+##   kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/release-8.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
+##   kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/release-8.1/deploy/kubernetes/snapshot-controller/rbac-snapshot-controller.yaml
+##   kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/release-8.1/deploy/kubernetes/snapshot-controller/setup-snapshot-controller.yaml
+## Left off by default on the lab cluster — the pg_dump CronJob backup
+## (templates/backup-cronjob.yaml) works independently and needs none of this.
 apiVersion: snapshot.storage.k8s.io/v1
 kind: VolumeSnapshotClass
 metadata:
@@ -45,3 +56,4 @@ metadata:
     {{- include "nutriai.commonLabels" . | nindent 4 }}
 driver: ebs.csi.aws.com
 deletionPolicy: Retain
+{{- end }}

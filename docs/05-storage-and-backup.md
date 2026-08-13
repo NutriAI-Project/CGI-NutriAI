@@ -53,9 +53,16 @@ gunzip -c nutriai-<timestamp>.sql.gz | kubectl -n nutriai-prod exec -i postgres-
   psql -U nutriai_user -d nutriai
 ```
 
-### Volume snapshots (point-in-time, whole-disk)
+### Volume snapshots (point-in-time, whole-disk) — optional, off by default
 
-`nutriai-ebs-snapshot` (`VolumeSnapshotClass`) is also installed, for
+`storage.volumeSnapshots.enabled` (default `false`) gates the
+`VolumeSnapshotClass`. It needs the external-snapshotter CRDs + controller,
+a separate component from the EBS CSI driver — not installed by
+`scripts/03-install-cluster-addons.sh`, and skipped by default so a fresh
+cluster syncs cleanly without it (ArgoCD syncs atomically — one missing CRD
+fails the whole Application). The `pg_dump` CronJob backup above works
+independently of this and needs none of it. Install the CRDs/controller
+(commands in `templates/storageclass.yaml`) and flip the flag on to get
 crash-consistent EBS snapshots as a second backup layer alongside logical
 `pg_dump`s:
 
