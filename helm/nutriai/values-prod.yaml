@@ -5,7 +5,6 @@ global:
   namespace: nutriai-prod
   environment: prod
   imageRegistry: "733236986490.dkr.ecr.us-east-1.amazonaws.com"
-
 # ArgoCD renders this chart straight from git — it cannot see the git-ignored
 # values-secrets.yaml used for local `helm install` demos. In the GitOps path,
 # real secret values MUST come from AWS Secrets Manager via External Secrets
@@ -15,25 +14,24 @@ global:
 # with `kubectl create secret` (see docs/07-helm-charts.md §4).
 externalSecrets:
   enabled: true
-
 # All service image tags are updated automatically by the CI "update-tag" job
 # (docs/08-cicd-github-actions.md) — do not hand-edit during normal operation.
 services:
   frontend-service:
-    image: { tag: v0.1.0 }
+    image: {tag: v0.1.0}
   api-gateway-service:
-    image: { tag: v0.1.0 }
+    image: {tag: v0.1.0}
   auth-service:
-    image: { tag: v0.1.0 }
+    image: {tag: v0.1.4}
   document-service:
-    image: { tag: v0.1.0 }
+    image: {tag: v0.1.0}
   diet-service:
-    image: { tag: v0.1.0 }
+    image: {tag: v0.1.0}
   health-service:
-    image: { tag: v0.1.0 }
+    image: {tag: v0.1.0}
   notification-service:
-    image: { tag: v0.1.0 }
+    image: {tag: v0.1.0}
   profile-service:
-    image: { tag: v0.1.0 }
+    image: {tag: v0.1.0}
   admin-service:
-    image: { tag: v0.1.0 }
+    image: {tag: v0.1.0}
