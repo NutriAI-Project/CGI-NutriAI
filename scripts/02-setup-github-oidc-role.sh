@@ -30,6 +30,12 @@ fi
 
 # 2. Trust policy — restrict to this exact repo, any branch/tag (tighten the
 #    sub condition further, e.g. to `ref:refs/heads/main`, if you want).
+#    Two patterns on purpose: GitHub's OIDC subject claim is
+#    `repo:<org>/<repo>:ref:...` normally, but becomes
+#    `repo:<org>@<org-id>/<repo>@<repo-id>:...` when the job specifies a
+#    GitHub Environment (our reusable workflow sets `environment:`) — caught
+#    live via CloudTrail after the first run got AccessDenied despite a
+#    seemingly-matching trust policy.
 TRUST_POLICY=$(cat <<EOF
 {
   "Version": "2012-10-17",
@@ -39,7 +45,7 @@ TRUST_POLICY=$(cat <<EOF
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": {"${OIDC_URL}:aud": "sts.amazonaws.com"},
-      "StringLike": {"${OIDC_URL}:sub": "repo:${GITHUB_ORG}/${GITHUB_REPO}:*"}
+      "StringLike": {"${OIDC_URL}:sub": ["repo:${GITHUB_ORG}/${GITHUB_REPO}:*", "repo:${GITHUB_ORG}@*/${GITHUB_REPO}@*:*"]}
     }
   }]
 }

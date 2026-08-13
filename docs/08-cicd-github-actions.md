@@ -56,7 +56,19 @@ also available (`gh workflow run ci-auth-service.yml -f image_tag=v1.0.1
    touches GitHub Secrets.
 2. Actions permissions: **Settings → Actions → General → Workflow
    permissions → Read and write permissions** (needed for the GitOps tag-bump
-   commit step in `_reusable-build-push.yml`).
+   commit step in `_reusable-build-push.yml`, and for the OIDC `id-token`
+   permission itself — an org/repo capped at `contents: read, id-token: none`
+   rejects the reusable workflow's `permissions:` request outright, before
+   any job even runs). This is org-wide on GitHub.com, not per-repo — if
+   you're a repo admin but not an org owner, you can't fix this yourself;
+   an org owner has to change it (found the hard way: this exact policy is
+   why this project's repo moved orgs mid-build).
+3. **IAM trust policy gotcha**: GitHub's OIDC subject claim is normally
+   `repo:<org>/<repo>:ref:...`, but a job that sets `environment:` (ours
+   does) gets `repo:<org>@<org-id>/<repo>@<repo-id>:environment:<name>`
+   instead — the `@<id>` suffixes will silently break a trust policy written
+   for the plain `org/repo` pattern (`AccessDenied`, confirmed via
+   CloudTrail). `scripts/02-setup-github-oidc-role.sh` matches both patterns.
 3. Optional environment protection: create GitHub **Environments** named
    `prod` and `dev` (Settings → Environments) and add required reviewers on
    `prod` if you want a manual approval gate before any image reaches ECR
