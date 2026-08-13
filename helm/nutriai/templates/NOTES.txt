@@ -1,0 +1,22 @@
+NutriAI ({{ .Values.global.environment }}) deployed to namespace {{ .Values.global.namespace }}.
+
+Check rollout status:
+  kubectl -n {{ .Values.global.namespace }} get pods
+  kubectl -n {{ .Values.global.namespace }} get deploy,hpa,pvc,httproute,gateway
+
+Reach the application (no public LoadBalancer — see docs/06-gateway-routing.md
+for the bastion tunnel / port-forward instructions):
+  kubectl -n {{ .Values.global.namespace }} port-forward svc/{{ .Values.gateway.name }} 8080:{{ .Values.gateway.listenerPort }}
+  # then open http://localhost:8080/
+
+Path-based routes:
+{{- range $name, $svc := .Values.services }}
+{{- if $svc.enabled }}
+  {{ printf "%-24s" $svc.path }} -> {{ $name }}:{{ $svc.servicePort }}
+{{- end }}
+{{- end }}
+
+Rollback a bad release:
+  helm rollback nutriai <REVISION> -n {{ .Values.global.namespace }}
+
+Full docs: docs/07-helm-charts.md, docs/06-gateway-routing.md

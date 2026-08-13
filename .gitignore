@@ -1,0 +1,37 @@
+# Real secret values — never commit. Copy helm/nutriai/values-secrets.example.yaml instead.
+helm/nutriai/values-secrets.yaml
+**/values-secrets.yaml
+
+# Local env files
+.env
+**/.env
+!**/.env.example
+
+# Python
+__pycache__/
+*.pyc
+.coverage
+coverage.xml
+.pytest_cache/
+*.egg-info/
+
+# Node / frontend
+node_modules/
+dist/
+coverage/
+*.local
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Helm
+*.tgz
+
+# Terraform (if added later)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars

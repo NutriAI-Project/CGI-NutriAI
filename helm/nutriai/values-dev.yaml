@@ -1,0 +1,52 @@
+## Development overlay — used by ArgoCD's `nutriai-dev` Application (dev branch), if enabled.
+## Same 2x t3.medium capacity assumption — kept minimal (1 replica everywhere, HPA capped low)
+## so dev and prod can coexist on the same lab cluster if needed. Prefer a separate
+## namespace/cluster for real use; see docs/01-architecture.md.
+
+global:
+  namespace: nutriai-dev
+  environment: dev
+  imageRegistry: "<ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com"
+  corsAllowOrigins:
+    - "http://localhost:5173"
+    - "http://localhost:3000"
+
+postgres:
+  storageSize: 2Gi
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 250m, memory: 512Mi}
+
+backup:
+  schedule: "0 3 * * *"
+  retentionDays: 3
+  storageSize: 2Gi
+
+services:
+  frontend-service:
+    image: { tag: dev }
+    hpa: { minReplicas: 1, maxReplicas: 1 }
+  api-gateway-service:
+    image: { tag: dev }
+    hpa: { minReplicas: 1, maxReplicas: 1 }
+  auth-service:
+    image: { tag: dev }
+    hpa: { minReplicas: 1, maxReplicas: 1 }
+  document-service:
+    image: { tag: dev }
+    hpa: { minReplicas: 1, maxReplicas: 1 }
+  diet-service:
+    image: { tag: dev }
+    hpa: { minReplicas: 1, maxReplicas: 1 }
+  health-service:
+    image: { tag: dev }
+    hpa: { minReplicas: 1, maxReplicas: 1 }
+  notification-service:
+    image: { tag: dev }
+    hpa: { minReplicas: 1, maxReplicas: 1 }
+  profile-service:
+    image: { tag: dev }
+    hpa: { minReplicas: 1, maxReplicas: 1 }
+  admin-service:
+    image: { tag: dev }
+    hpa: { minReplicas: 1, maxReplicas: 1 }

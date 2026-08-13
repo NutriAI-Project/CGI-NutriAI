@@ -1,0 +1,83 @@
+{{- if and .Values.postgres.enabled .Values.backup.enabled }}
+## Dynamically-provisioned PVC dedicated to backups (kept separate from the
+## live postgres-data volume so a corrupted live volume can't take the
+## backups with it).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backup-data
+  namespace: {{ .Values.global.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+  labels:
+    {{- include "nutriai.commonLabels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: {{ .Values.storage.ebsStorageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.backup.storageSize }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: {{ .Values.global.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    {{- include "nutriai.commonLabels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "nutriai.commonLabels" . | nindent 12 }}
+            app.kubernetes.io/name: postgres-backup
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+          containers:
+            - name: pg-dump
+              image: {{ .Values.backup.image }}
+              envFrom:
+                - secretRef:
+                    name: postgres-credentials
+              env:
+                - name: RETENTION_DAYS
+                  value: {{ .Values.backup.retentionDays | quote }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+                  STAMP=$(date +%Y%m%d-%H%M%S)
+                  OUT="/backup/${POSTGRES_DB}-${STAMP}.sql.gz"
+                  echo "Backing up ${POSTGRES_DB} -> ${OUT}"
+                  PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump \
+                    -h postgres.{{ $.Values.global.namespace }}.svc.cluster.local \
+                    -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+                    | gzip > "${OUT}"
+                  echo "Pruning backups older than ${RETENTION_DAYS} days"
+                  find /backup -name '*.sql.gz' -mtime +${RETENTION_DAYS} -delete
+                  echo "Backup complete: $(ls -lh ${OUT})"
+              volumeMounts:
+                - name: backup-data
+                  mountPath: /backup
+              resources:
+                {{- toYaml .Values.backup.resources | nindent 16 }}
+              securityContext:
+                allowPrivilegeEscalation: false
+          volumes:
+            - name: backup-data
+              persistentVolumeClaim:
+                claimName: postgres-backup-data
+{{- end }}

@@ -1,0 +1,20 @@
+{{- range $name, $svc := .Values.services }}
+{{- if and $svc.enabled $svc.pvc.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $svc.pvc.name }}
+  namespace: {{ $.Values.global.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  labels:
+    {{- include "nutriai.svcLabels" (list $ $name $svc) | nindent 4 }}
+spec:
+  accessModes: ["{{ $svc.pvc.accessMode }}"]
+  storageClassName: {{ $svc.pvc.storageClassName }}
+  resources:
+    requests:
+      storage: {{ $svc.pvc.size }}
+---
+{{- end }}
+{{- end }}

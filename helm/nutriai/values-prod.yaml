@@ -1,0 +1,39 @@
+## Production overlay — used by ArgoCD's `nutriai-prod` Application (main branch).
+## Usage: helm upgrade --install nutriai ./helm/nutriai -f values.yaml -f values-prod.yaml -f values-secrets.yaml -n nutriai-prod
+
+global:
+  namespace: nutriai-prod
+  environment: prod
+  imageRegistry: "<ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com"
+
+# ArgoCD renders this chart straight from git — it cannot see the git-ignored
+# values-secrets.yaml used for local `helm install` demos. In the GitOps path,
+# real secret values MUST come from AWS Secrets Manager via External Secrets
+# Operator instead. Install ESO + create the SecretStore + populate Secrets
+# Manager BEFORE the first sync (docs/09-argocd-gitops.md §3). For a quick
+# lab-only sync without ESO, set this back to false and apply secrets manually
+# with `kubectl create secret` (see docs/07-helm-charts.md §4).
+externalSecrets:
+  enabled: true
+
+# All service image tags are updated automatically by the CI "update-tag" job
+# (docs/08-cicd-github-actions.md) — do not hand-edit during normal operation.
+services:
+  frontend-service:
+    image: { tag: latest }
+  api-gateway-service:
+    image: { tag: latest }
+  auth-service:
+    image: { tag: latest }
+  document-service:
+    image: { tag: latest }
+  diet-service:
+    image: { tag: latest }
+  health-service:
+    image: { tag: latest }
+  notification-service:
+    image: { tag: latest }
+  profile-service:
+    image: { tag: latest }
+  admin-service:
+    image: { tag: latest }

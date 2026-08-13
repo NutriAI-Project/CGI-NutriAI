@@ -1,0 +1,38 @@
+## AppProject scopes what the NutriAI Applications are allowed to deploy —
+## restricts them to this repo, this cluster, and the nutriai-* namespaces
+## instead of leaving them with the default unrestricted "default" project.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: nutriai
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  description: NutriAI microservices platform
+  sourceRepos:
+    - "https://github.com/NutriAI16-ORG/CGI-NutriAI.git"
+  destinations:
+    - namespace: "nutriai-*"
+      server: "https://kubernetes.default.svc"
+    - namespace: "argocd"
+      server: "https://kubernetes.default.svc"
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: "storage.k8s.io"
+      kind: StorageClass
+    - group: "snapshot.storage.k8s.io"
+      kind: VolumeSnapshotClass
+    - group: "gateway.networking.k8s.io"
+      kind: GatewayClass
+  namespaceResourceBlacklist:
+    - group: ""
+      kind: ResourceQuota
+    - group: ""
+      kind: LimitRange
+  roles:
+    - name: readonly
+      description: Read-only access to NutriAI applications
+      policies:
+        - p, proj:nutriai:readonly, applications, get, nutriai/*, allow

@@ -1,0 +1,47 @@
+## Dynamic storage — requires the AWS EBS CSI driver + AWS EFS CSI driver
+## add-ons enabled on the EKS cluster (docs/03-aws-bootstrap.md §4).
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.storage.ebsStorageClassName }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+  labels:
+    {{- include "nutriai.commonLabels" . | nindent 4 }}
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+parameters:
+  type: gp3
+  encrypted: "true"
+  fsType: ext4
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.storage.efsStorageClassName }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+  labels:
+    {{- include "nutriai.commonLabels" . | nindent 4 }}
+provisioner: efs.csi.aws.com
+volumeBindingMode: Immediate
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+parameters:
+  provisioningMode: efs-ap        # dynamic provisioning via EFS access points
+  fileSystemId: {{ .Values.storage.efsFileSystemId | quote }}
+  directoryPerms: "700"
+  basePath: "/nutriai"
+---
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: {{ .Values.storage.volumeSnapshotClassName }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+  labels:
+    {{- include "nutriai.commonLabels" . | nindent 4 }}
+driver: ebs.csi.aws.com
+deletionPolicy: Retain

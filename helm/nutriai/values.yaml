@@ -1,0 +1,391 @@
+## =============================================================================
+## NutriAI umbrella Helm chart — base defaults.
+## Environment-specific overrides live in values-dev.yaml / values-prod.yaml.
+## Real secret values NEVER live here — see values-secrets.example.yaml + docs/07-helm-charts.md
+## =============================================================================
+
+global:
+  namespace: nutriai-prod
+  environment: prod
+  # <ACCOUNT_ID> is substituted by CI / documented in docs/03-aws-bootstrap.md
+  imageRegistry: "<ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com"
+  imagePullPolicy: IfNotPresent
+  corsAllowOrigins:
+    - "http://localhost:5173"
+  podAnnotations: {}
+  labels:
+    app.kubernetes.io/part-of: nutriai
+
+serviceAccount:
+  create: true
+  name: nutriai-app-sa
+  # Set to an IAM role ARN (IRSA) if services need direct AWS API access (S3, Secrets Manager)
+  eksRoleArn: ""
+
+## ---------------------------------------------------------------------------
+## In-cluster PostgreSQL (single instance — see docs/05-storage-and-backup.md
+## for the managed-RDS upgrade path for a real production environment).
+## ---------------------------------------------------------------------------
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  storageClassName: nutriai-gp3
+  storageSize: 5Gi
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: 500m, memory: 1Gi}
+  credentials:
+    database: nutriai
+    username: nutriai_user
+    # password: set via values-secrets.yaml (key postgres.password) — never committed
+    password: ""
+
+## ---------------------------------------------------------------------------
+## Dynamic storage — StorageClasses + automated backup CronJob
+## ---------------------------------------------------------------------------
+storage:
+  ebsStorageClassName: nutriai-gp3
+  efsStorageClassName: nutriai-efs
+  # Filled in after `terraform apply` creates the EFS filesystem (docs/03-aws-bootstrap.md)
+  efsFileSystemId: "fs-REPLACE_ME"
+  volumeSnapshotClassName: nutriai-ebs-snapshot
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"        # 02:00 UTC daily
+  retentionDays: 7
+  storageSize: 5Gi
+  image: postgres:16-alpine
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 300m, memory: 256Mi}
+
+## ---------------------------------------------------------------------------
+## kgateway (Kubernetes Gateway API) — path-based routing, no LoadBalancer
+## Service is created per-service as ClusterIP; only the gateway's own Envoy
+## proxy Service is exposed (ClusterIP/NodePort — see docs/06-gateway-routing.md)
+## ---------------------------------------------------------------------------
+gateway:
+  create: true
+  name: nutriai-gateway
+  className: kgateway
+  listenerPort: 80
+  # ClusterIP (default, access via kubectl port-forward / bastion tunnel) or NodePort
+  serviceType: ClusterIP
+
+## ---------------------------------------------------------------------------
+## External Secrets (optional, prod-grade). When disabled, native templated
+## Secret objects are used instead, populated from values-secrets.yaml.
+## ---------------------------------------------------------------------------
+externalSecrets:
+  enabled: false
+  secretStoreRefName: nutriai-secretstore
+  refreshInterval: 1h
+
+networkPolicy:
+  enabled: true
+
+## ---------------------------------------------------------------------------
+## Per-microservice configuration
+## ---------------------------------------------------------------------------
+services:
+
+  frontend-service:
+    enabled: true
+    tier: frontend
+    image:
+      repository: nutriai/frontend-service
+      tag: latest
+    containerPort: 80
+    servicePort: 80
+    path: /
+    pathType: PathPrefix
+    stripPrefix: false
+    healthPath: /
+    replicas: 1
+    resources:
+      requests: {cpu: 25m, memory: 32Mi}
+      limits: {cpu: 150m, memory: 128Mi}
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 75
+    configEnv:
+      BACKEND_URL: "http://api-gateway-service.nutriai-prod.svc.cluster.local:8000"
+    secretEnv: {}
+    pvc:
+      enabled: false
+
+  api-gateway-service:
+    enabled: true
+    tier: backend
+    image:
+      repository: nutriai/api-gateway-service
+      tag: latest
+    containerPort: 8000
+    servicePort: 8000
+    path: /api
+    pathType: PathPrefix
+    stripPrefix: true
+    healthPath: /health
+    replicas: 1
+    resources:
+      requests: {cpu: 75m, memory: 128Mi}
+      limits: {cpu: 250m, memory: 256Mi}
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+    usesDb: true
+    configEnv:
+      APP_NAME: "NutriAI API Gateway"
+      ALGORITHM: "HS256"
+      AUTH_SERVICE_URL: "http://auth-service.nutriai-prod.svc.cluster.local:8001"
+      DOCUMENT_SERVICE_URL: "http://document-service.nutriai-prod.svc.cluster.local:8002"
+      DIET_SERVICE_URL: "http://diet-service.nutriai-prod.svc.cluster.local:8003"
+      HEALTH_SERVICE_URL: "http://health-service.nutriai-prod.svc.cluster.local:8004"
+      NOTIFICATION_SERVICE_URL: "http://notification-service.nutriai-prod.svc.cluster.local:8005"
+      PROFILE_SERVICE_URL: "http://profile-service.nutriai-prod.svc.cluster.local:8006"
+      ADMIN_SERVICE_URL: "http://admin-service.nutriai-prod.svc.cluster.local:8007"
+    secretEnv:
+      JWT_SECRET_KEY: ""
+    pvc:
+      enabled: false
+
+  auth-service:
+    enabled: true
+    tier: backend
+    image:
+      repository: nutriai/auth-service
+      tag: latest
+    containerPort: 8001
+    servicePort: 8001
+    path: /auth-service
+    pathType: PathPrefix
+    stripPrefix: true
+    healthPath: /health
+    replicas: 1
+    resources:
+      requests: {cpu: 75m, memory: 128Mi}
+      limits: {cpu: 250m, memory: 256Mi}
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+    usesDb: true
+    configEnv:
+      ALGORITHM: "HS256"
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      ENTRA_REDIRECT_URI: ""
+    secretEnv:
+      JWT_SECRET_KEY: ""
+      ENTRA_CLIENT_ID: ""
+      ENTRA_CLIENT_SECRET: ""
+      ENTRA_TENANT_ID: ""
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ""
+    pvc:
+      enabled: false
+
+  document-service:
+    enabled: true
+    tier: backend
+    image:
+      repository: nutriai/document-service
+      tag: latest
+    containerPort: 8002
+    servicePort: 8002
+    path: /document-service
+    pathType: PathPrefix
+    stripPrefix: true
+    healthPath: /health
+    replicas: 1
+    resources:
+      requests: {cpu: 75m, memory: 160Mi}
+      limits: {cpu: 300m, memory: 320Mi}
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 2
+      targetCPUUtilizationPercentage: 70
+    usesDb: true
+    configEnv:
+      AZURE_STORAGE_CONTAINER_NAME: "health-documents"
+      AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: ""
+      AZURE_OPENAI_ENDPOINT: ""
+      AZURE_OPENAI_DEPLOYMENT_NAME: "gpt-4"
+      AZURE_OPENAI_API_VERSION: "2024-02-01"
+    secretEnv:
+      AZURE_STORAGE_CONNECTION_STRING: ""
+      AZURE_DOCUMENT_INTELLIGENCE_KEY: ""
+      AZURE_OPENAI_KEY: ""
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ""
+    # Shared, dynamically-provisioned EFS-backed volume for uploaded documents
+    # (RWX so any replica can serve any file). Mounted at /app/uploads.
+    pvc:
+      enabled: true
+      name: document-uploads
+      mountPath: /app/uploads
+      storageClassName: nutriai-efs
+      accessMode: ReadWriteMany
+      size: 10Gi
+
+  diet-service:
+    enabled: true
+    tier: backend
+    image:
+      repository: nutriai/diet-service
+      tag: latest
+    containerPort: 8003
+    servicePort: 8003
+    path: /diet-service
+    pathType: PathPrefix
+    stripPrefix: true
+    healthPath: /health
+    replicas: 1
+    resources:
+      requests: {cpu: 75m, memory: 128Mi}
+      limits: {cpu: 250m, memory: 256Mi}
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+    usesDb: true
+    configEnv:
+      AZURE_OPENAI_DEPLOYMENT_NAME: "gpt-4"
+      AZURE_OPENAI_API_VERSION: "2024-02-01"
+      AZURE_SERVICE_BUS_TOPIC_NAME: "meal-reminders"
+    secretEnv:
+      AZURE_OPENAI_ENDPOINT: ""
+      AZURE_OPENAI_KEY: ""
+      AZURE_SERVICE_BUS_CONNECTION_STRING: ""
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ""
+    pvc:
+      enabled: false
+
+  health-service:
+    enabled: true
+    tier: backend
+    image:
+      repository: nutriai/health-service
+      tag: latest
+    containerPort: 8004
+    servicePort: 8004
+    path: /health-service
+    pathType: PathPrefix
+    stripPrefix: true
+    healthPath: /health
+    replicas: 1
+    resources:
+      requests: {cpu: 75m, memory: 128Mi}
+      limits: {cpu: 250m, memory: 256Mi}
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+    usesDb: true
+    configEnv: {}
+    secretEnv:
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ""
+    pvc:
+      enabled: false
+
+  notification-service:
+    enabled: true
+    tier: backend
+    image:
+      repository: nutriai/notification-service
+      tag: latest
+    containerPort: 8005
+    servicePort: 8005
+    path: /notification-service
+    pathType: PathPrefix
+    stripPrefix: true
+    healthPath: /health
+    replicas: 1
+    resources:
+      requests: {cpu: 75m, memory: 128Mi}
+      limits: {cpu: 250m, memory: 256Mi}
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 2
+      targetCPUUtilizationPercentage: 70
+    usesDb: true
+    configEnv:
+      AZURE_SERVICE_BUS_TOPIC_NAME: "meal-reminders"
+      AZURE_SERVICE_BUS_SUBSCRIPTION_NAME: "email-sender"
+      EMAIL_PROVIDER: "smtp"
+      SMTP_HOST: "smtp.gmail.com"
+      SMTP_PORT: "587"
+      SMTP_FROM_EMAIL: "noreply@nutriai-health.com"
+      SENDGRID_FROM_EMAIL: "noreply@nutriai-health.com"
+      APP_URL: ""
+    secretEnv:
+      AZURE_SERVICE_BUS_CONNECTION_STRING: ""
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SENDGRID_API_KEY: ""
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ""
+    pvc:
+      enabled: false
+
+  profile-service:
+    enabled: true
+    tier: backend
+    image:
+      repository: nutriai/profile-service
+      tag: latest
+    containerPort: 8006
+    servicePort: 8006
+    path: /profile-service
+    pathType: PathPrefix
+    stripPrefix: true
+    healthPath: /health
+    replicas: 1
+    resources:
+      requests: {cpu: 75m, memory: 128Mi}
+      limits: {cpu: 250m, memory: 256Mi}
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+    usesDb: true
+    configEnv: {}
+    secretEnv:
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ""
+    pvc:
+      enabled: false
+
+  admin-service:
+    enabled: true
+    tier: backend
+    image:
+      repository: nutriai/admin-service
+      tag: latest
+    containerPort: 8007
+    servicePort: 8007
+    path: /admin-service
+    pathType: PathPrefix
+    stripPrefix: true
+    healthPath: /health
+    replicas: 1
+    resources:
+      requests: {cpu: 75m, memory: 128Mi}
+      limits: {cpu: 250m, memory: 256Mi}
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 2
+      targetCPUUtilizationPercentage: 70
+    usesDb: true
+    configEnv: {}
+    secretEnv:
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ""
+    pvc:
+      enabled: false

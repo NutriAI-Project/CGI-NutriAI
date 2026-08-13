@@ -1,0 +1,51 @@
+name: CI - health-service
+
+## Triggers whenever an image tag for this service is pushed as a git tag
+## (e.g. git tag health-service-v1.0.3 && git push origin health-service-v1.0.3), or manually
+## via workflow_dispatch with an explicit tag. Deliberately NOT path-filtered
+## on every push to main — GitHub ANDs path filters with tag filters in the
+## same "push" block, which would silently skip tag-triggered runs whose
+## commit didn't touch this service's folder. See docs/08-cicd-github-actions.md.
+
+on:
+  push:
+    tags:
+      - "health-service-v*"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to build & push"
+        required: true
+        default: "manual-${{ github.run_number }}"
+      environment:
+        description: "Target environment"
+        required: true
+        default: "prod"
+        type: choice
+        options: ["dev", "prod"]
+
+jobs:
+  resolve-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      environment: ${{ steps.resolve.outputs.environment }}
+    steps:
+      - id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+            echo "environment=${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME#health-service-}" >> "$GITHUB_OUTPUT"
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: resolve-tag
+    uses: ./.github/workflows/_reusable-build-push.yml
+    with:
+      service-name: health-service
+      image-tag: ${{ needs.resolve-tag.outputs.tag }}
+      environment: ${{ needs.resolve-tag.outputs.environment }}
+    secrets: inherit

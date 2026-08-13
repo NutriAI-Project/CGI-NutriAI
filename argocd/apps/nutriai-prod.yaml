@@ -1,0 +1,40 @@
+## Child Application — production. Manual sync only (no `automated:` block):
+## every change is reviewed and applied deliberately via
+## `argocd app sync nutriai-prod` or the UI's Sync button, never auto-applied.
+## ArgoCD still detects and reports drift (shows OutOfSync) continuously.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nutriai-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: nutriai
+  source:
+    repoURL: "https://github.com/NutriAI16-ORG/CGI-NutriAI.git"
+    targetRevision: main
+    path: helm/nutriai
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-prod.yaml
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: nutriai-prod
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas   # let the HPA own replica count without ArgoCD fighting it

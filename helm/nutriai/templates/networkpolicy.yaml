@@ -1,0 +1,35 @@
+{{- if .Values.networkPolicy.enabled }}
+## Baseline segmentation: only allow ingress from within the same namespace
+## (covers pod-to-pod calls and the in-namespace kgateway Envoy proxy).
+## Egress is left open since several services call external Azure APIs
+## (OpenAI, Service Bus, Document Intelligence) — tighten with explicit
+## egress rules per-service once those endpoints are finalized.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: {{ .Values.global.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  labels:
+    {{- include "nutriai.commonLabels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: {{ .Values.global.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  labels:
+    {{- include "nutriai.commonLabels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector: {}
+{{- end }}

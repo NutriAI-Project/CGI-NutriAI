@@ -1,0 +1,19 @@
+apiVersion: v2
+name: nutriai
+description: >
+  Unified Helm chart for the NutriAI microservices platform — 8 FastAPI
+  backend services, 1 React/Vite frontend, in-cluster PostgreSQL, dynamic
+  EBS/EFS storage with automated backups, and kgateway (Gateway API)
+  path-based routing. Deployed to AWS EKS via ArgoCD (App-of-Apps GitOps).
+type: application
+version: 1.0.0
+appVersion: "2.0.0"
+keywords:
+  - nutriai
+  - microservices
+  - eks
+  - gitops
+  - kgateway
+maintainers:
+  - name: NutriAI16-ORG
+home: https://github.com/NutriAI16-ORG/CGI-NutriAI

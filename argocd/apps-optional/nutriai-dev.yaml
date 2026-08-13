@@ -1,0 +1,46 @@
+## Child Application — development. Auto-sync + self-heal + prune, tracking
+## the `dev` branch. Lives here (not in argocd/apps/) on purpose: the root
+## app-of-apps only watches argocd/apps/, so nutriai-dev stays opt-in — the
+## 2x t3.medium lab cluster doesn't have headroom to run both environments
+## at once (docs/01-architecture.md capacity budget). To enable it:
+##   cp argocd/apps-optional/nutriai-dev.yaml argocd/apps/nutriai-dev.yaml
+##   git commit -am "enable dev environment" && git push
+## the root app picks it up on its next sync automatically.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nutriai-dev
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: nutriai
+  source:
+    repoURL: "https://github.com/NutriAI16-ORG/CGI-NutriAI.git"
+    targetRevision: dev
+    path: helm/nutriai
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-dev.yaml
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: nutriai-dev
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

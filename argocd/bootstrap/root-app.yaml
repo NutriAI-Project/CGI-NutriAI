@@ -1,0 +1,30 @@
+## THE App-of-Apps root. This is the ONE manifest you apply manually
+## (`kubectl apply -f argocd/bootstrap/root-app.yaml`) to bootstrap
+## everything else. It watches argocd/apps/ in this same repo and manages
+## the child Applications (nutriai-prod, nutriai-dev) declared there —
+## edit/add files under argocd/apps/ and this root app rolls them out for you.
+## See docs/09-argocd-gitops.md.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nutriai-root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: nutriai
+  source:
+    repoURL: "https://github.com/NutriAI16-ORG/CGI-NutriAI.git"
+    targetRevision: main
+    path: argocd/apps
+    directory:
+      recurse: false
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: argocd
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
