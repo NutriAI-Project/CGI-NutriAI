@@ -4,7 +4,7 @@
 global:
   namespace: nutriai-prod
   environment: prod
-  imageRegistry: "<ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com"
+  imageRegistry: "733236986490.dkr.ecr.us-east-1.amazonaws.com"
 
 # ArgoCD renders this chart straight from git — it cannot see the git-ignored
 # values-secrets.yaml used for local `helm install` demos. In the GitOps path,

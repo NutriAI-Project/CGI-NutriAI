@@ -46,8 +46,7 @@ postgres:
 storage:
   ebsStorageClassName: nutriai-gp3
   efsStorageClassName: nutriai-efs
-  # Filled in after `terraform apply` creates the EFS filesystem (docs/03-aws-bootstrap.md)
-  efsFileSystemId: "fs-REPLACE_ME"
+  efsFileSystemId: "fs-067ba24a1cdb4897c"
   volumeSnapshotClassName: nutriai-ebs-snapshot
 
 backup:
