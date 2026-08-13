@@ -79,10 +79,19 @@ jobs:
 
       - name: Bump Helm values (GitOps tag update)
         if: ${{ inputs.update-gitops-tag }}
+        # Always fetch Mike Farah's yq directly (mikefarah/yq — Go binary,
+        # in-place -i works standalone). Ubuntu's `apt install yq` is a
+        # DIFFERENT, incompatible tool (Python wrapper around jq, needs
+        # -i combined with -y/-Y) — a prior version of this step tried
+        # `snap install` first with an apt fallback "just in case", and on
+        # a run where snap transiently failed, apt silently installed the
+        # wrong yq and broke the edit ("-i/--in-place can only be used with
+        # -y/-Y"). No ambiguity now — one deterministic source.
         run: |
           VALUES_FILE="helm/nutriai/values-${{ inputs.environment }}.yaml"
-          sudo snap install yq 2>/dev/null || (sudo apt-get update -y && sudo apt-get install -y yq) || true
-          command -v yq >/dev/null || (curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq)
+          curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /tmp/yq
+          sudo install -m 0755 /tmp/yq /usr/local/bin/yq
+          yq --version
           yq -i ".services.\"${{ inputs.service-name }}\".image.tag = \"${{ inputs.image-tag }}\"" "$VALUES_FILE"
 
       - name: Commit & push tag bump
