@@ -64,6 +64,20 @@ backup:
     limits: {cpu: 300m, memory: 256Mi}
 
 ## ---------------------------------------------------------------------------
+## GPU node pool — budget lab sizing (g4dn.xlarge / NVIDIA T4 16GB,
+## min=max=1, created via `eksctl create nodegroup` — see
+## docs/13-gpu-and-bedrock.md). Services with `gpu: true` in their block
+## below get a nodeSelector + toleration matching this; everything else is
+## repelled by the taint so the one GPU node isn't wasted on non-AI pods.
+## ---------------------------------------------------------------------------
+gpu:
+  nodeSelectorLabel: workload
+  nodeSelectorValue: ai
+  taintKey: nvidia.com/gpu
+  taintValue: "true"
+  taintEffect: NoSchedule
+
+## ---------------------------------------------------------------------------
 ## kgateway (Kubernetes Gateway API) — path-based routing, no LoadBalancer
 ## Service is created per-service as ClusterIP; only the gateway's own Envoy
 ## proxy Service is exposed (ClusterIP/NodePort — see docs/06-gateway-routing.md)
@@ -214,12 +228,20 @@ services:
       maxReplicas: 2
       targetCPUUtilizationPercentage: 70
     usesDb: true
+    # AI-touching service (OCR + LLM extraction) — schedule on the GPU node
+    # pool. See values.yaml `gpu:` block and templates/deployment.yaml.
+    gpu: true
     configEnv:
       AZURE_STORAGE_CONTAINER_NAME: "health-documents"
       AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: ""
       AZURE_OPENAI_ENDPOINT: ""
       AZURE_OPENAI_DEPLOYMENT_NAME: "gpt-4"
       AZURE_OPENAI_API_VERSION: "2024-02-01"
+      # AWS Bedrock — infra (IAM/IRSA) is wired below; application code to
+      # actually call Bedrock instead of/alongside Azure OpenAI is NOT
+      # implemented here, see docs/13-gpu-and-bedrock.md for exact scope.
+      AWS_REGION: "us-east-1"
+      BEDROCK_MODEL_ID: "anthropic.claude-3-haiku-20240307-v1:0"
     secretEnv:
       AZURE_STORAGE_CONNECTION_STRING: ""
       AZURE_DOCUMENT_INTELLIGENCE_KEY: ""
@@ -257,10 +279,13 @@ services:
       maxReplicas: 3
       targetCPUUtilizationPercentage: 70
     usesDb: true
+    gpu: true
     configEnv:
       AZURE_OPENAI_DEPLOYMENT_NAME: "gpt-4"
       AZURE_OPENAI_API_VERSION: "2024-02-01"
       AZURE_SERVICE_BUS_TOPIC_NAME: "meal-reminders"
+      AWS_REGION: "us-east-1"
+      BEDROCK_MODEL_ID: "anthropic.claude-3-haiku-20240307-v1:0"
     secretEnv:
       AZURE_OPENAI_ENDPOINT: ""
       AZURE_OPENAI_KEY: ""

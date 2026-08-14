@@ -28,6 +28,15 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
     spec:
       serviceAccountName: {{ include "nutriai.serviceAccountName" $ }}
+      {{- if $svc.gpu }}
+      nodeSelector:
+        {{ $.Values.gpu.nodeSelectorLabel }}: {{ $.Values.gpu.nodeSelectorValue | quote }}
+      tolerations:
+        - key: {{ $.Values.gpu.taintKey }}
+          operator: Equal
+          value: {{ $.Values.gpu.taintValue | quote }}
+          effect: {{ $.Values.gpu.taintEffect }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         {{- if eq $svc.tier "frontend" }}
