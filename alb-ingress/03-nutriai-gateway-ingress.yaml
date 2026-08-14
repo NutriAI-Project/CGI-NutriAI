@@ -37,16 +37,41 @@ spec:
   ingressClassName: alb
   rules:
     # No `host:` — matches any Host header, so the bare ALB DNS name works
-    # directly for testing with no DNS/Route53 setup required. Add a host
-    # rule back (see README §6) once you point a real domain at the ALB —
-    # group.order 10 still lets it coexist with argocd-server's host-scoped
-    # rule below.
+    # directly for testing with no DNS/Route53 setup required.
+    #
+    # Every path below forwards to the SAME nutriai-gateway Service (kgateway's
+    # Envoy proxy) — the actual per-microservice split happens one hop later,
+    # inside the cluster, via the existing HTTPRoute objects
+    # (helm/nutriai/templates/httproute.yaml, see docs/06-gateway-routing.md).
+    # Listed explicitly here — one path per microservice — so the routing is
+    # visible directly in the Ingress object, not just inferred from kgateway
+    # config one layer down.
     - http:
         paths:
+          - path: /admin-service
+            pathType: Prefix
+            backend: {service: {name: nutriai-gateway, port: {number: 80}}}
+          - path: /api
+            pathType: Prefix
+            backend: {service: {name: nutriai-gateway, port: {number: 80}}}
+          - path: /auth-service
+            pathType: Prefix
+            backend: {service: {name: nutriai-gateway, port: {number: 80}}}
+          - path: /diet-service
+            pathType: Prefix
+            backend: {service: {name: nutriai-gateway, port: {number: 80}}}
+          - path: /document-service
+            pathType: Prefix
+            backend: {service: {name: nutriai-gateway, port: {number: 80}}}
+          - path: /health-service
+            pathType: Prefix
+            backend: {service: {name: nutriai-gateway, port: {number: 80}}}
+          - path: /notification-service
+            pathType: Prefix
+            backend: {service: {name: nutriai-gateway, port: {number: 80}}}
+          - path: /profile-service
+            pathType: Prefix
+            backend: {service: {name: nutriai-gateway, port: {number: 80}}}
           - path: /
             pathType: Prefix
-            backend:
-              service:
-                name: nutriai-gateway
-                port:
-                  number: 80
+            backend: {service: {name: nutriai-gateway, port: {number: 80}}}
