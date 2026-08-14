@@ -229,8 +229,14 @@ services:
       targetCPUUtilizationPercentage: 70
     usesDb: true
     # AI-touching service (OCR + LLM extraction) — schedule on the GPU node
-    # pool. See values.yaml `gpu:` block and templates/deployment.yaml.
-    gpu: true
+    # pool once one exists. See values.yaml `gpu:` block and
+    # templates/deployment.yaml. TEMPORARILY false: the GPU nodegroup
+    # creation failed (account vCPU quota is 0, increase requested — see
+    # docs/NutriAI-ALB-GPU-Bedrock-Guide.docx §6) and auto-sync just went
+    # live, so a nodeSelector with no matching node would strand this
+    # service's pods in Pending forever. Flip back to true once
+    # `kubectl get nodes -l workload=ai` shows a node.
+    gpu: false
     configEnv:
       AZURE_STORAGE_CONTAINER_NAME: "health-documents"
       AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: ""
@@ -279,7 +285,8 @@ services:
       maxReplicas: 3
       targetCPUUtilizationPercentage: 70
     usesDb: true
-    gpu: true
+    # Same TEMPORARY revert as document-service above — see that comment.
+    gpu: false
     configEnv:
       AZURE_OPENAI_DEPLOYMENT_NAME: "gpt-4"
       AZURE_OPENAI_API_VERSION: "2024-02-01"
