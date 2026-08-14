@@ -15,7 +15,12 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: nutriai-alb
-    alb.ingress.kubernetes.io/group.order: "20"
+    # LOWEST order number (= HIGHEST priority) of the two rules in this
+    # group — must be evaluated BEFORE nutriai-gateway's host-agnostic
+    # catch-all rule, or that rule swallows every request regardless of
+    # Host header. See that file's comment for what happened when this
+    # was backwards.
+    alb.ingress.kubernetes.io/group.order: "10"
     # HTTP-only until a real ACM cert exists — see 03-nutriai-gateway-ingress.yaml's
     # comment for why the placeholder cert ARN breaks the listener outright.
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'

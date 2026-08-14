@@ -17,7 +17,13 @@ metadata:
     # Shared-ALB group — merges with the argocd Ingress into ONE ALB
     # instead of provisioning a second one. Rules are ordered by priority.
     alb.ingress.kubernetes.io/group.name: nutriai-alb
-    alb.ingress.kubernetes.io/group.order: "10"
+    # Deliberately the HIGHEST order number (= LOWEST priority, evaluated
+    # LAST) of the two rules in this group. This rule has no `host:` so it
+    # matches everything — if it were evaluated before argocd-server's
+    # host-scoped rule, it would swallow every request including ones
+    # meant for ArgoCD. Caught live: first apply served the NutriAI
+    # frontend for both hostnames.
+    alb.ingress.kubernetes.io/group.order: "20"
     # HTTP-only until a real ACM cert exists — the placeholder ARN below
     # is not valid and the controller rejects the listener outright if a
     # certificate-arn annotation is present but unparsable, rather than
