@@ -1,0 +1,17 @@
+## Selector matches BOTH v1 and v2 pods (no `version` in the selector) —
+## Istio's DestinationRule/VirtualService are what split traffic between
+## subsets; the Service itself is subset-agnostic, standard Istio pattern.
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: nutriai-mesh
+  labels:
+    app: frontend-service
+spec:
+  selector:
+    app: frontend-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

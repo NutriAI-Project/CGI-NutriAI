@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-service-v1
+  namespace: nutriai-mesh
+  labels:
+    app: frontend-service
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-service
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: frontend-service
+        version: v1
+    spec:
+      containers:
+        - name: frontend-service
+          image: "733236986490.dkr.ecr.us-east-1.amazonaws.com/nutriai/frontend-service:v0.1.0"
+          ports:
+            - containerPort: 80
+          env:
+            - name: BACKEND_URL
+              value: "http://api-gateway-service.nutriai-mesh.svc.cluster.local:8000"
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { cpu: 150m, memory: 128Mi }
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+            initialDelaySeconds: 5

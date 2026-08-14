@@ -1,0 +1,32 @@
+## Slightly more aggressive canary weight than frontend (80/20) — API
+## layer is a more meaningful place to prove out a new version before
+## sending it a bigger share of traffic. Same x-canary header override.
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-gateway-service
+  namespace: nutriai-mesh
+spec:
+  hosts:
+    - api-gateway-service.nutriai-mesh.svc.cluster.local
+  gateways:
+    - mesh
+  http:
+    - match:
+        - headers:
+            x-canary:
+              exact: "true"
+      route:
+        - destination:
+            host: api-gateway-service.nutriai-mesh.svc.cluster.local
+            subset: v2
+          weight: 100
+    - route:
+        - destination:
+            host: api-gateway-service.nutriai-mesh.svc.cluster.local
+            subset: v1
+          weight: 80
+        - destination:
+            host: api-gateway-service.nutriai-mesh.svc.cluster.local
+            subset: v2
+          weight: 20

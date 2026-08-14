@@ -14,6 +14,8 @@ Gateway API (kgateway) with path-based routing, no LoadBalancer.
 | [`argocd/`](argocd/) | App-of-Apps GitOps bootstrap |
 | [`.github/workflows/`](.github/workflows/) | CI: clone → build → push to ECR → bump Helm tag |
 | [`scripts/`](scripts/) | one-time AWS bootstrap (ECR, OIDC role, cluster add-ons) — not run automatically |
+| [`alb-ingress/`](alb-ingress/) | optional: public ALB exposing kgateway + ArgoCD ([docs/11](docs/11-alb-exposure.md)) — not applied by default |
+| [`istio-service-mesh/`](istio-service-mesh/) | optional: separate Istio mesh demo with canary traffic distribution ([docs/12](docs/12-istio-service-mesh.md)) — not applied by default |
 | [`docs/`](docs/) | full documentation, start at [`docs/10-runbook-end-to-end.md`](docs/10-runbook-end-to-end.md) |
 
 ## Quick start

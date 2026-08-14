@@ -1,0 +1,53 @@
+## Minimal-footprint Istio install — deliberately trimmed for the same
+## 2-node lab budget documented in ../docs/01-architecture.md.
+## Egress gateway is off (nothing here needs it); ingress gateway is on
+## (it's what 08-alb-ingress-for-istio.yaml targets).
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: nutriai-mesh-control-plane
+  namespace: istio-system
+spec:
+  profile: default
+  meshConfig:
+    accessLogFile: /dev/stdout
+    enableAutoMtls: true
+  components:
+    pilot:
+      k8s:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 300m
+            memory: 256Mi
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        k8s:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          # ClusterIP: the ALB (08-alb-ingress-for-istio.yaml) targets pod
+          # IPs directly (target-type: ip) — no cloud LoadBalancer needed
+          # here either, same philosophy as kgateway in ../docs/06-gateway-routing.md.
+          service:
+            type: ClusterIP
+    egressGateways:
+      - name: istio-egressgateway
+        enabled: false
+  values:
+    global:
+      proxy:
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi

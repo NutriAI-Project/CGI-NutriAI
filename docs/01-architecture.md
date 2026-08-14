@@ -1,5 +1,11 @@
 # Architecture
 
+> Full-infrastructure diagram (VPC/subnets/NAT/ALB/EKS/RBAC/Secrets
+> Manager, including the optional ALB and Istio mesh layers):
+> [`docs/assets/architecture-diagram.png`](assets/architecture-diagram.png)
+> (static) or [`docs/assets/architecture-diagram.html`](assets/architecture-diagram.html)
+> (interactive, open in a browser).
+
 ## Platform
 
 ```
@@ -118,3 +124,18 @@ or a 10th service) has nowhere to schedule and sits `Pending` with
   but kept opt-in (`argocd/apps-optional/nutriai-dev.yaml`) since running
   both at once won't fit on 2 nodes. See
   [09-argocd-gitops.md](09-argocd-gitops.md).
+
+## Optional layers on top of this design
+
+Two more folders exist at the repo root, both **ready but not applied**,
+both additive (they don't change anything documented above):
+
+- [`../alb-ingress/`](../alb-ingress/) ([docs/11](11-alb-exposure.md)) —
+  drops the "no LoadBalancer" default deliberately, fronting kgateway and
+  ArgoCD with one shared public ALB when you want a real URL instead of
+  the bastion tunnel.
+- [`../istio-service-mesh/`](../istio-service-mesh/)
+  ([docs/12](12-istio-service-mesh.md)) — a separate, narrow Istio mesh
+  (its own namespace, its own ALB) demonstrating mTLS + weighted canary
+  traffic distribution, kept out of `nutriai-prod` specifically because
+  of the pod-count ceiling above.

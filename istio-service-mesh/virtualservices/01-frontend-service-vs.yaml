@@ -1,0 +1,37 @@
+## Two rules, evaluated top-to-bottom:
+##   1. Anything carrying header `x-canary: true` → 100% v2 (targeted testing)
+##   2. Everything else → weighted split, 90% v1 / 10% v2
+## `gateways` binds this to BOTH north-south traffic (through
+## nutriai-mesh-gateway / the ALB) and east-west (`mesh` = intra-mesh
+## callers), so the same policy governs external and internal callers.
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: frontend-service
+  namespace: nutriai-mesh
+spec:
+  hosts:
+    - frontend-service.nutriai-mesh.svc.cluster.local
+    - mesh.nutriai.example.com
+  gateways:
+    - mesh
+    - nutriai-mesh-gateway
+  http:
+    - match:
+        - headers:
+            x-canary:
+              exact: "true"
+      route:
+        - destination:
+            host: frontend-service.nutriai-mesh.svc.cluster.local
+            subset: v2
+          weight: 100
+    - route:
+        - destination:
+            host: frontend-service.nutriai-mesh.svc.cluster.local
+            subset: v1
+          weight: 90
+        - destination:
+            host: frontend-service.nutriai-mesh.svc.cluster.local
+            subset: v2
+          weight: 10

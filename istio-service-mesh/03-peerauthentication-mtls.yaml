@@ -1,0 +1,14 @@
+## Enforces mTLS for every sidecar-to-sidecar connection inside the
+## nutriai-mesh namespace — plaintext connections are rejected. Traffic
+## arriving from outside the mesh (via istio-ingressgateway) is still
+## allowed in on plaintext HTTP/HTTPS at the Gateway listener itself
+## (06-istio-gateway.yaml); the gateway then re-originates mTLS to the
+## backend pods, so external clients never need a mesh cert.
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: nutriai-mesh
+spec:
+  mtls:
+    mode: STRICT

@@ -1,0 +1,42 @@
+## Kubernetes RBAC scoping who can change mesh traffic-management/security
+## objects in nutriai-mesh — separate concern from the AuthorizationPolicy
+## above (that governs pod-to-pod traffic; this governs kubectl/API
+## access to the mesh config objects themselves). Mirrors the "least
+## privilege per concern" pattern already used for the ArgoCD AppProject
+## in ../../argocd/projects/nutriai-project.yaml.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mesh-editor
+  namespace: nutriai-mesh
+rules:
+  - apiGroups: ["networking.istio.io"]
+    resources: ["virtualservices", "destinationrules", "gateways"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["security.istio.io"]
+    resources: ["authorizationpolicies", "peerauthentications"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["services", "pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+---
+## Replace the subject with your real IAM-mapped Kubernetes group (via
+## aws-auth ConfigMap / EKS access entries) before applying — left as a
+## placeholder group name so this doesn't silently grant nobody (or
+## everybody) access.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mesh-editor-binding
+  namespace: nutriai-mesh
+subjects:
+  - kind: Group
+    name: "nutriai-platform-team"
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: mesh-editor
+  apiGroup: rbac.authorization.k8s.io

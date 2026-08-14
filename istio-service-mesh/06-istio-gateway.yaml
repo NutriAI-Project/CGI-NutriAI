@@ -1,0 +1,21 @@
+## Istio's own Gateway resource (networking.istio.io — NOT the Gateway API
+## `gateway.networking.k8s.io` kind kgateway uses; different CRD, same
+## name by coincidence). Binds to the istio-ingressgateway pods' HTTP
+## listener; 08-alb-ingress-for-istio.yaml puts the ALB in front of that
+## Service. TLS terminates at the ALB (see the Ingress's certificate-arn
+## annotation) — this listener stays plain HTTP behind it.
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: nutriai-mesh-gateway
+  namespace: nutriai-mesh
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "mesh.nutriai.example.com"

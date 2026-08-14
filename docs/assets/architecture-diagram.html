@@ -1,0 +1,385 @@
+<title>NutriAI — AWS EKS Infrastructure &amp; Traffic Flow</title>
+<style>
+  :root {
+    --bg: #f5f3ee;
+    --surface: #ffffff;
+    --surface-2: #edeae2;
+    --border: #d7d2c4;
+    --text: #211f1a;
+    --text-dim: #6b6759;
+    --accent-traffic: #b5620a;   /* solid arrows: request/data path */
+    --accent-control: #3f6b4f;   /* dashed arrows: GitOps / IAM / control-plane */
+    --accent-mesh: #6a4c93;      /* optional Istio mesh path */
+    --box-vpc: #eef2f0;
+    --box-ns: #ffffff;
+    --box-optional: #f6f1fb;
+    --font-display: "Segoe UI Semibold", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --surface: #1b1f23;
+      --surface-2: #21262b;
+      --border: #343b41;
+      --text: #e9e6de;
+      --text-dim: #97998e;
+      --accent-traffic: #e0912f;
+      --accent-control: #6fbf8b;
+      --accent-mesh: #b199e0;
+      --box-vpc: #1d2724;
+      --box-ns: #1f2327;
+      --box-optional: #241f2c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171a; --surface: #1b1f23; --surface-2: #21262b; --border: #343b41;
+    --text: #e9e6de; --text-dim: #97998e;
+    --accent-traffic: #e0912f; --accent-control: #6fbf8b; --accent-mesh: #b199e0;
+    --box-vpc: #1d2724; --box-ns: #1f2327; --box-optional: #241f2c;
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f3ee; --surface: #ffffff; --surface-2: #edeae2; --border: #d7d2c4;
+    --text: #211f1a; --text-dim: #6b6759;
+    --accent-traffic: #b5620a; --accent-control: #3f6b4f; --accent-mesh: #6a4c93;
+    --box-vpc: #eef2f0; --box-ns: #ffffff; --box-optional: #f6f1fb;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    margin: 0;
+    padding: 28px 20px 56px;
+  }
+  .wrap { max-width: 1300px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+  header h1 {
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: 700;
+    margin: 0 0 4px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  header p { margin: 0; color: var(--text-dim); font-size: 0.95rem; max-width: 68ch; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 18px;
+    font-size: 0.8rem; color: var(--text-dim);
+    padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .swatch { width: 22px; height: 0; border-top: 2.5px solid; display: inline-block; }
+  .swatch.dashed { border-top-style: dashed; }
+  .swatch.traffic { border-color: var(--accent-traffic); }
+  .swatch.control { border-color: var(--accent-control); }
+  .swatch.mesh { border-color: var(--accent-mesh); border-top-style: dashed; }
+
+  .diagram-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    overflow-x: auto;
+  }
+  .diagram-card svg { display: block; min-width: 1400px; width: 100%; height: auto; }
+  figcaption { font-size: 0.8rem; color: var(--text-dim); margin-top: 10px; padding: 0 4px; }
+
+  .grid-notes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+  }
+  .note-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .note-card h3 {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 8px;
+    color: var(--text-dim);
+  }
+  .note-card p { margin: 0; font-size: 0.88rem; line-height: 1.5; }
+  .note-card code {
+    font-family: var(--font-mono); font-size: 0.82em;
+    background: var(--surface-2); padding: 1px 5px; border-radius: 4px;
+  }
+
+  footer { font-size: 0.78rem; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 14px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>NutriAI on AWS EKS — traffic, GitOps &amp; secrets flow</h1>
+    <p>How a request reaches a pod, how images and config get there via GitOps, and where IAM/RBAC and secrets sit along the way. Reflects <code style="font-family:var(--font-mono)">CGI-NutriAI</code> plus the optional <code style="font-family:var(--font-mono)">alb-ingress/</code> and <code style="font-family:var(--font-mono)">istio-service-mesh/</code> additions — neither applied by default.</p>
+  </header>
+
+  <div class="legend">
+    <span><i class="swatch traffic"></i> request / data path</span>
+    <span><i class="swatch dashed control"></i> GitOps · IAM · control-plane</span>
+    <span><i class="swatch mesh"></i> optional Istio mesh path (separate stack)</span>
+  </div>
+
+  <figure class="diagram-card">
+    <svg viewBox="0 0 1820 1180" role="img" aria-label="Diagram of the NutriAI AWS EKS architecture: a browser reaches Route 53 then a shared ALB in the VPC's public subnets, which routes by hostname into kgateway or ArgoCD in the private subnets; kgateway path-routes to nine backend services and Postgres; External Secrets Operator pulls from AWS Secrets Manager via IRSA; GitHub Actions builds images to ECR and updates the GitOps repo that ArgoCD polls; an optional separate Istio mesh stack runs a weighted canary split behind its own ALB.">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <style>
+        text { font-family: -apple-system, "Segoe UI", sans-serif; fill: var(--text); }
+        .lbl-title { font-size: 12.5px; font-weight: 700; }
+        .lbl-sub   { font-size: 10.5px; fill: var(--text-dim); }
+        .lbl-arrow { font-size: 10.5px; }
+        .box       { fill: var(--box-ns); stroke: var(--border); stroke-width: 1.3; }
+        .box-vpc   { fill: var(--box-vpc); stroke: var(--border); stroke-width: 1.3; }
+        .box-opt   { fill: var(--box-optional); stroke: var(--accent-mesh); stroke-width: 1.2; stroke-dasharray: 5 4; }
+        .box-cp    { fill: none; stroke: var(--text-dim); stroke-width: 1.2; stroke-dasharray: 4 3; }
+        .edge-traffic { stroke: var(--accent-traffic); stroke-width: 1.8; fill: none; marker-end: url(#arrow); }
+        .edge-control { stroke: var(--accent-control); stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; marker-end: url(#arrow); }
+        .edge-mesh     { stroke: var(--accent-mesh); stroke-width: 1.8; fill: none; marker-end: url(#arrow); }
+        .edge-lbl-bg   { fill: var(--bg); }
+      </style>
+
+      <!-- ================= External actors (left column) ================= -->
+      <rect class="box" x="30" y="96" width="230" height="46" rx="7"/>
+      <text class="lbl-title" x="42" y="123">Browser / API client</text>
+
+      <rect class="box" x="30" y="176" width="230" height="46" rx="7"/>
+      <text class="lbl-title" x="42" y="203">Route 53 (DNS)</text>
+
+      <rect class="box" x="30" y="330" width="230" height="46" rx="7"/>
+      <text class="lbl-title" x="42" y="357">Developer</text>
+
+      <rect class="box" x="30" y="410" width="230" height="46" rx="7"/>
+      <text class="lbl-title" x="42" y="432">GitHub: CGI-NutriAI repo</text>
+      <text class="lbl-sub" x="42" y="447">main branch = source of truth</text>
+
+      <rect class="box" x="30" y="490" width="230" height="52" rx="7"/>
+      <text class="lbl-title" x="42" y="512">GitHub Actions CI</text>
+      <text class="lbl-sub" x="42" y="528">OIDC — no static AWS keys</text>
+
+      <!-- actor-to-actor arrows -->
+      <line class="edge-control" x1="145" y1="376" x2="145" y2="408"/>
+      <text class="lbl-arrow" x="152" y="396">git push / tag</text>
+
+      <path class="edge-control" d="M110,456 C90,466 90,480 108,489"/>
+      <text class="lbl-arrow" x="10" y="478">webhook</text>
+
+      <path class="edge-control" d="M185,489 C205,480 205,466 182,457"/>
+      <text class="lbl-arrow" x="188" y="478">bump tag</text>
+
+      <line class="edge-traffic" x1="145" y1="142" x2="145" y2="174"/>
+      <text class="lbl-arrow" x="152" y="163">DNS query</text>
+
+      <path class="edge-traffic" d="M260,199 C420,199 560,205 698,222"/>
+      <text class="lbl-arrow" x="330" y="192">CNAME → ALB</text>
+
+      <!-- ================= AWS Account boundary ================= -->
+      <rect x="470" y="70" width="1340" height="1085" rx="12" fill="none" stroke="var(--text-dim)" stroke-width="1.4" stroke-dasharray="2 4"/>
+      <text class="lbl-sub" x="486" y="90">AWS Account · us-east-1 (placeholder — see note, right)</text>
+
+      <!-- VPC -->
+      <rect class="box-vpc" x="500" y="108" width="1032" height="1032" rx="10"/>
+      <text class="lbl-title" x="516" y="128">VPC · 10.0.0.0/16</text>
+
+      <rect class="box" x="520" y="128" width="120" height="34" rx="6"/>
+      <text class="lbl-sub" x="530" y="149">Internet Gateway</text>
+      <line class="edge-traffic" x1="700" y1="228" x2="620" y2="163"/>
+
+      <!-- Public subnets -->
+      <rect class="box-vpc" x="518" y="196" width="994" height="200" rx="8" stroke-dasharray="3 3"/>
+      <text class="lbl-sub" x="530" y="212">Public subnets — tag kubernetes.io/role/elb=1</text>
+
+      <rect class="box" x="698" y="222" width="234" height="46" rx="7"/>
+      <text class="lbl-title" x="712" y="242">ALB · nutriai-alb</text>
+      <text class="lbl-sub" x="712" y="257">internet-facing · host-routed</text>
+
+      <rect class="box-vpc" x="538" y="284" width="450" height="98" rx="7"/>
+      <text class="lbl-sub" x="550" y="300">AZ us-east-1a · 10.0.0.0/24</text>
+      <rect class="box" x="552" y="310" width="130" height="40" rx="6"/>
+      <text class="lbl-title" x="562" y="334" style="font-size:11px">NAT Gateway A</text>
+      <rect class="box" x="700" y="310" width="270" height="40" rx="6"/>
+      <text class="lbl-title" x="712" y="328" style="font-size:11px">Bastion EC2</text>
+      <text class="lbl-sub" x="712" y="342">204.236.210.16 — SSH kubectl jump host</text>
+
+      <rect class="box-vpc" x="1006" y="284" width="490" height="98" rx="7"/>
+      <text class="lbl-sub" x="1018" y="300">AZ us-east-1b · 10.0.1.0/24</text>
+      <rect class="box" x="1020" y="310" width="130" height="40" rx="6"/>
+      <text class="lbl-title" x="1030" y="334" style="font-size:11px">NAT Gateway B</text>
+
+      <!-- ALB down to gateway / argocd lanes -->
+      <path class="edge-traffic" d="M760,268 C760,300 640,340 610,470"/>
+      <text class="lbl-arrow" x="605" y="400">host=app.*→:80</text>
+      <text class="lbl-arrow" x="605" y="413">target-type=ip</text>
+
+      <path class="edge-traffic" d="M870,268 C900,320 1000,420 1010,720"/>
+      <text class="lbl-arrow" x="905" y="470">host=argocd.*→:80</text>
+
+      <!-- Private subnets -->
+      <rect class="box-vpc" x="518" y="416" width="994" height="700" rx="8" stroke-dasharray="3 3"/>
+      <text class="lbl-sub" x="530" y="432">Private subnets — tag kubernetes.io/role/internal-elb=1 · 2× t3.medium managed node group, spread AZ-a/AZ-b</text>
+
+      <!-- Lane: kgateway-system -->
+      <rect class="box" x="536" y="452" width="958" height="70" rx="7"/>
+      <text class="lbl-title" x="550" y="472">ns: kgateway-system</text>
+      <text class="lbl-sub" x="550" y="488">GatewayClass=kgateway → Gateway "nutriai-gateway" (ClusterIP:80) — Envoy proxy pod</text>
+
+      <!-- Lane: nutriai-prod -->
+      <rect class="box" x="536" y="536" width="958" height="150" rx="7"/>
+      <text class="lbl-title" x="550" y="556">ns: nutriai-prod</text>
+      <text class="lbl-sub" x="550" y="572">frontend-service (/) · api-gateway-service (/api) · auth / document / diet / health / notification / profile / admin-service — 7× path-routed, each with HPA + PDB</text>
+      <text class="lbl-sub" x="550" y="588">PostgreSQL StatefulSet (gp3 PVC, nutriai-gp3) + nightly backup CronJob</text>
+      <text class="lbl-sub" x="550" y="604">document-service ⇄ EFS PVC (nutriai-efs, ReadWriteMany) — upload storage</text>
+      <text class="lbl-sub" x="550" y="622" fill="var(--text-dim)">ServiceAccount nutriai-app-sa (IRSA-ready for direct AWS API access)</text>
+
+      <path class="edge-traffic" x1="0" x2="0" d="M700,522 L700,536" />
+      <text class="lbl-arrow" x="708" y="530">HTTPRoute path match</text>
+
+      <!-- Lane: argocd -->
+      <rect class="box" x="536" y="704" width="958" height="66" rx="7"/>
+      <text class="lbl-title" x="550" y="722">ns: argocd</text>
+      <text class="lbl-sub" x="550" y="738">argocd-server · repo-server · application-controller (core-install, no Dex/ApplicationSet) — App-of-Apps: nutriai-root → nutriai-prod</text>
+
+      <path class="edge-control" d="M700,770 C560,900 260,700 145,458"/>
+      <text class="lbl-arrow" x="270" y="640">git pull · poll 3min / manual sync</text>
+
+      <!-- Lane: external-secrets + kube-system -->
+      <rect class="box" x="536" y="788" width="462" height="60" rx="7"/>
+      <text class="lbl-title" x="548" y="806" style="font-size:11.5px">ns: external-secrets</text>
+      <text class="lbl-sub" x="548" y="822">ExternalSecrets Operator</text>
+
+      <rect class="box" x="1012" y="788" width="482" height="60" rx="7"/>
+      <text class="lbl-title" x="1024" y="806" style="font-size:11.5px">ns: kube-system</text>
+      <text class="lbl-sub" x="1024" y="822">CoreDNS · VPC CNI · EBS/EFS CSI · metrics-server · aws-load-balancer-controller</text>
+
+      <!-- Lane: optional Istio mesh -->
+      <rect class="box-opt" x="536" y="864" width="958" height="228" rx="7"/>
+      <text class="lbl-title" x="550" y="884" fill="var(--accent-mesh)">OPTIONAL — separate stack: istio-service-mesh/ (own namespace, own ALB)</text>
+      <text class="lbl-sub" x="550" y="900">ns: istio-system — istiod · istio-ingressgateway (ClusterIP)</text>
+
+      <rect class="box" x="550" y="912" width="300" height="86" rx="6"/>
+      <text class="lbl-title" x="560" y="930" style="font-size:11px">ns: nutriai-mesh</text>
+      <text class="lbl-sub" x="560" y="945">frontend-service</text>
+      <rect x="560" y="953" width="122" height="20" rx="4" class="box"/>
+      <text x="571" y="967" style="font-size:9.5px">v1 · 90%</text>
+      <rect x="690" y="953" width="122" height="20" rx="4" fill="var(--box-optional)" stroke="var(--accent-mesh)"/>
+      <text x="701" y="967" style="font-size:9.5px" fill="var(--accent-mesh)">v2 · 10% canary</text>
+      <line class="edge-mesh" x1="682" y1="963" x2="688" y2="963"/>
+
+      <rect x="866" y="912" width="300" height="86" rx="6" class="box"/>
+      <text class="lbl-title" x="876" y="930" style="font-size:11px">api-gateway-service</text>
+      <rect x="876" y="953" width="122" height="20" rx="4" class="box"/>
+      <text x="887" y="967" style="font-size:9.5px">v1 · 80%</text>
+      <rect x="1006" y="953" width="122" height="20" rx="4" fill="var(--box-optional)" stroke="var(--accent-mesh)"/>
+      <text x="1017" y="967" style="font-size:9.5px" fill="var(--accent-mesh)">v2 · 20% canary</text>
+      <line class="edge-mesh" x1="998" y1="963" x2="1004" y2="963"/>
+
+      <text class="lbl-sub" x="550" y="1020">PeerAuthentication STRICT (mTLS) · AuthorizationPolicy default-deny + explicit allow · RBAC Role "mesh-editor"</text>
+
+      <rect class="box" x="550" y="1032" width="220" height="46" rx="6" stroke="var(--accent-mesh)"/>
+      <text class="lbl-title" x="560" y="1050" style="font-size:10.5px">ALB · nutriai-mesh-alb</text>
+      <text class="lbl-sub" x="560" y="1065">separate ALB, own bill</text>
+      <path class="edge-mesh" d="M770,1055 C820,1030 820,970 866,955"/>
+      <text class="lbl-arrow" x="792" y="1010" fill="var(--accent-mesh)">host=mesh.*</text>
+
+      <!-- Egress: kube-system/private subnets -> NAT -> IGW -->
+      <path class="edge-control" d="M700,452 C660,420 640,400 617,352"/>
+      <text class="lbl-arrow" x="615" y="392">egress only</text>
+
+      <!-- ================= Right column: regional AWS services ================= -->
+      <rect class="box-cp" x="1552" y="118" width="228" height="64" rx="8"/>
+      <text class="lbl-title" x="1564" y="138" style="font-size:11.5px">EKS Control Plane</text>
+      <text class="lbl-sub" x="1564" y="154">AWS-managed · private API endpoint</text>
+
+      <path class="edge-control" d="M260,352 C450,320 900,180 1552,150"/>
+      <text class="lbl-arrow" x="900" y="215">kubectl (bastion → private endpoint)</text>
+
+      <rect class="box" x="1552" y="200" width="228" height="150" rx="8"/>
+      <text class="lbl-title" x="1564" y="220" style="font-size:11.5px">IAM Roles (IRSA + OIDC)</text>
+      <text class="lbl-sub" x="1564" y="238">ALB controller role</text>
+      <text class="lbl-sub" x="1564" y="253">EBS / EFS CSI driver roles</text>
+      <text class="lbl-sub" x="1564" y="268">ExternalSecrets role</text>
+      <text class="lbl-sub" x="1564" y="283">GitHub Actions OIDC role</text>
+      <text class="lbl-sub" x="1564" y="298" fill="var(--text-dim)">scoped: ecr:* on nutriai/* only</text>
+
+      <path class="edge-control" d="M1494,822 C1520,780 1520,300 1552,270"/>
+
+      <rect class="box" x="1552" y="368" width="228" height="54" rx="8"/>
+      <text class="lbl-title" x="1564" y="388" style="font-size:11.5px">ECR</text>
+      <text class="lbl-sub" x="1564" y="404">nutriai/&lt;service&gt; · 9 repos</text>
+
+      <path class="edge-control" d="M260,510 C700,540 1400,470 1552,395"/>
+      <text class="lbl-arrow" x="900" y="500">docker push (OIDC role)</text>
+      <path class="edge-control" d="M1552,405 C1300,470 1150,520 1000,536"/>
+      <text class="lbl-arrow" x="1250" y="470">image pull (kubelet)</text>
+
+      <rect class="box" x="1552" y="442" width="228" height="58" rx="8"/>
+      <text class="lbl-title" x="1564" y="462" style="font-size:11.5px">Secrets Manager</text>
+      <text class="lbl-sub" x="1564" y="478">nutriai/prod/&lt;service&gt;</text>
+
+      <path class="edge-control" d="M998,806 C1300,700 1500,520 1552,466"/>
+      <text class="lbl-arrow" x="1150" y="650">GetSecretValue (IRSA)</text>
+      <path class="edge-control" d="M1552,478 C1300,560 1050,600 900,686"/>
+      <text class="lbl-arrow" x="1160" y="600">synced as ExternalSecret</text>
+
+      <rect class="box" x="1552" y="516" width="228" height="52" rx="8"/>
+      <text class="lbl-title" x="1564" y="536" style="font-size:11.5px">EFS filesystem</text>
+      <text class="lbl-sub" x="1564" y="551">fs-067ba24a1cdb4897c</text>
+
+      <path class="edge-traffic" d="M1000,600 C1300,600 1500,580 1552,545"/>
+      <text class="lbl-arrow" x="1230" y="592">NFS :2049 (document-service)</text>
+
+      <rect class="box" x="1552" y="584" width="228" height="76" rx="8"/>
+      <text class="lbl-title" x="1564" y="602" style="font-size:11.5px">Kubernetes RBAC</text>
+      <text class="lbl-sub" x="1564" y="618">AppProject "nutriai" (ArgoCD)</text>
+      <text class="lbl-sub" x="1564" y="633">Role "mesh-editor" (nutriai-mesh)</text>
+
+      <path class="edge-control" d="M1552,610 C1300,660 1100,700 994,730"/>
+      <path class="edge-control" d="M1552,625 C1300,780 1150,940 866,940"/>
+
+      <rect class="box" x="1552" y="678" width="228" height="130" rx="8" stroke="var(--text-dim)" stroke-dasharray="2 3"/>
+      <text class="lbl-title" x="1564" y="698" style="font-size:11px">⚠ Placeholder values</text>
+      <text class="lbl-sub" x="1564" y="716">Account 733236986490 / us-east-1</text>
+      <text class="lbl-sub" x="1564" y="731">and the 10.0.0.0/16 CIDR match this</text>
+      <text class="lbl-sub" x="1564" y="746">repo's docs. Swap in your real</text>
+      <text class="lbl-sub" x="1564" y="761">cluster's account, region and VPC</text>
+      <text class="lbl-sub" x="1564" y="776">before applying anything — see</text>
+      <text class="lbl-sub" x="1564" y="791">docs/03-aws-bootstrap.md.</text>
+    </svg>
+  </figure>
+
+  <div class="grid-notes">
+    <div class="note-card">
+      <h3>Entry points</h3>
+      <p>One shared ALB (<code>nutriai-alb</code>) host-routes <code>app.*</code> to kgateway and <code>argocd.*</code> to ArgoCD — one bill, two apps. The optional mesh demo gets its own ALB (<code>nutriai-mesh-alb</code>), kept separate on purpose.</p>
+    </div>
+    <div class="note-card">
+      <h3>Why two subnet tiers</h3>
+      <p>Public subnets hold only the ALB's ENIs, the NAT Gateways, and the bastion — nothing that runs application code. Every pod, including the EKS worker nodes themselves, lives in the private subnets and reaches the internet only outbound, through NAT.</p>
+    </div>
+    <div class="note-card">
+      <h3>Secrets never touch git</h3>
+      <p>External Secrets Operator assumes an IRSA role to read <code>nutriai/prod/&lt;service&gt;</code> from Secrets Manager and materializes it as a native <code>Secret</code> — the value is never committed, never in a Helm value file.</p>
+    </div>
+    <div class="note-card">
+      <h3>Two layers of RBAC</h3>
+      <p>Kubernetes RBAC scopes <em>who can change what</em> (ArgoCD's AppProject, the mesh-editor Role). Istio's AuthorizationPolicy scopes <em>which workload can call which workload</em> — independent controls, both shown.</p>
+    </div>
+  </div>
+
+  <footer>
+    Source: <code style="font-family:var(--font-mono)">docs/01-architecture.md</code>, <code style="font-family:var(--font-mono)">docs/03-aws-bootstrap.md</code>, <code style="font-family:var(--font-mono)">alb-ingress/</code>, <code style="font-family:var(--font-mono)">istio-service-mesh/</code>. Nothing in those folders is applied to a cluster by default.
+  </footer>
+</div>

@@ -1,0 +1,38 @@
+## Canary variant — same Service, "canary" image tag, version: v2 label.
+## Build/push this tag yourself (e.g. from a feature branch) before
+## expecting real traffic to succeed here; until then this is a
+## placeholder that demonstrates the subset/routing wiring.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-service-v2
+  namespace: nutriai-mesh
+  labels:
+    app: frontend-service
+    version: v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-service
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: frontend-service
+        version: v2
+    spec:
+      containers:
+        - name: frontend-service
+          image: "733236986490.dkr.ecr.us-east-1.amazonaws.com/nutriai/frontend-service:canary"
+          ports:
+            - containerPort: 80
+          env:
+            - name: BACKEND_URL
+              value: "http://api-gateway-service.nutriai-mesh.svc.cluster.local:8000"
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { cpu: 150m, memory: 128Mi }
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+            initialDelaySeconds: 5

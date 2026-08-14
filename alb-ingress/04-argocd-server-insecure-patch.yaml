@@ -1,0 +1,23 @@
+## argocd-server terminates its own TLS by default (self-signed cert —
+## the same one docs/09-argocd-gitops.md tells you to click through the
+## browser warning for). Putting an ALB in front means TLS gets terminated
+## TWICE (ALB, then argocd-server again) unless argocd-server is told to
+## speak plain HTTP behind the ALB — which is the standard pattern here
+## since the ALB is already doing edge TLS with a real ACM cert.
+##
+## Apply as a strategic merge patch, not a plain `apply` (it targets the
+## ConfigMap/Deployment core-install.yaml already created):
+##
+##   kubectl -n argocd patch configmap argocd-cmd-params-cm --type merge \
+##     -p '{"data":{"server.insecure":"true"}}'
+##   kubectl -n argocd rollout restart deployment argocd-server
+##
+## Kept here as a reference/record of the exact change, not something you
+## `kubectl apply -f` directly (it's a patch, not a full object).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: argocd
+data:
+  server.insecure: "true"

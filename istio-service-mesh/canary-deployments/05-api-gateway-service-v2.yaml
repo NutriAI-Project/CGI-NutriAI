@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway-service-v2
+  namespace: nutriai-mesh
+  labels:
+    app: api-gateway-service
+    version: v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway-service
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: api-gateway-service
+        version: v2
+    spec:
+      containers:
+        - name: api-gateway-service
+          image: "733236986490.dkr.ecr.us-east-1.amazonaws.com/nutriai/api-gateway-service:canary"
+          ports:
+            - containerPort: 8000
+          env:
+            - name: APP_NAME
+              value: "NutriAI API Gateway (mesh demo, canary)"
+            - name: ALGORITHM
+              value: "HS256"
+          resources:
+            requests: { cpu: 75m, memory: 128Mi }
+            limits: { cpu: 250m, memory: 256Mi }
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5

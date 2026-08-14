@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nutriai-mesh
+  labels:
+    app.kubernetes.io/part-of: nutriai
+    # Enables automatic Envoy sidecar injection for every pod created here.
+    istio-injection: enabled

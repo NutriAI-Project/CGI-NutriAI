@@ -1,0 +1,41 @@
+## Mesh-level RBAC, on top of (not instead of) Kubernetes RBAC (rbac/).
+## Default-deny in nutriai-mesh, then two explicit allows:
+##   1. Same-namespace callers (frontend → api-gateway, etc.)
+##   2. istio-ingressgateway's own identity (so external traffic admitted
+##      by 06-istio-gateway.yaml can actually reach the backends)
+## Nothing else — including pods in nutriai-prod or default — can call
+## into this namespace even with cluster network reachability.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny
+  namespace: nutriai-mesh
+spec:
+  # Empty spec.rules = deny all by default once any AuthorizationPolicy
+  # exists for the workload selector (here: unscoped = whole namespace).
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: nutriai-mesh
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            namespaces: ["nutriai-mesh"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingressgateway
+  namespace: nutriai-mesh
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"
