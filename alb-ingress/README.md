@@ -87,6 +87,33 @@ troubleshooting) is in
 [`../docs/11-alb-exposure.md`](../docs/11-alb-exposure.md) and in the
 combined Word document.
 
+## Two things caught live on the real cluster, worth knowing before you touch this
+
+1. **`group.order` and priority direction**: lower `group.order` = higher
+   ALB listener-rule priority = evaluated **first**. The host-agnostic
+   `nutriai-gateway` rule (matches every request, no `host:`) must be the
+   **highest** order number (evaluated last) of the two — get this backwards
+   and it silently swallows every request, including ones meant for
+   `argocd-server`, and both hostnames just serve the app.
+2. **`elasticloadbalancing:SetRulePriorities` is missing from AWS's own
+   published IAM policy JSON** for the controller (at least as of the
+   `v2.9.0` tag this script pulls). Without it, the controller can compute
+   the *correct* rule order but gets `AccessDenied` reordering the *live*
+   ALB rules every single reconcile, forever, with no obvious error
+   surfaced anywhere except `kubectl logs deploy/aws-load-balancer-controller
+   -n kube-system`. `01-install-aws-load-balancer-controller.sh` now patches
+   this in automatically.
+
+Both are already fixed in the manifests/script here — noted for when you
+change the group ordering, add a third Ingress, or re-fetch a newer policy
+JSON from upstream.
+
+**ArgoCD's admin password**: exposing the UI publicly means the
+auto-generated initial password shouldn't stay in place — rotate it
+(`argocd account update-password`, or `kubectl -n argocd patch secret
+argocd-secret` with a new bcrypt hash) right after applying
+`04-argocd-ingress.yaml`, not as an afterthought.
+
 ## Files
 
 | File | Purpose |

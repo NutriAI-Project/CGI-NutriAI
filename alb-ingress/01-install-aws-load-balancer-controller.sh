@@ -22,6 +22,29 @@ echo "==> Fetch AWS's official IAM policy for the controller (kept out of git �
 curl -fsSL -o "${POLICY_FILE}" \
   https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.9.0/docs/install/iam_policy.json
 
+echo "==> Patch a gap in AWS's own policy JSON: elasticloadbalancing:SetRulePriorities is missing"
+## Caught live: with two Ingress objects sharing one ALB (group.name), the
+## controller needs SetRulePriorities to reorder listener rules so a
+## host-scoped rule evaluates before a catch-all one — without it, every
+## reconcile attempt fails with AccessDenied and rule order is stuck at
+## whatever it was on first creation (wrong order = the catch-all rule
+## silently swallows traffic meant for the other Ingress). Confirmed via
+## the controller's own reconcile error, not speculation.
+python3 -c "
+import json
+with open('${POLICY_FILE}') as f:
+    doc = json.load(f)
+for stmt in doc['Statement']:
+    actions = stmt.get('Action', [])
+    if isinstance(actions, str):
+        actions = [actions]
+    if 'elasticloadbalancing:ModifyRule' in actions and 'elasticloadbalancing:SetRulePriorities' not in actions:
+        actions.append('elasticloadbalancing:SetRulePriorities')
+        stmt['Action'] = actions
+with open('${POLICY_FILE}', 'w') as f:
+    json.dump(doc, f, indent=2)
+"
+
 echo "==> Create (or reuse) the IAM policy"
 POLICY_ARN="arn:aws:iam::${ACCOUNT_ID}:policy/${POLICY_NAME}"
 if ! aws iam get-policy --policy-arn "${POLICY_ARN}" >/dev/null 2>&1; then
@@ -29,6 +52,11 @@ if ! aws iam get-policy --policy-arn "${POLICY_ARN}" >/dev/null 2>&1; then
     --policy-name "${POLICY_NAME}" \
     --policy-document "file://${POLICY_FILE}" \
     --query Policy.Arn --output text)
+else
+  # Policy already exists (e.g. re-running this script) — make sure the
+  # SetRulePriorities patch above is actually applied to it.
+  aws iam create-policy-version --policy-arn "${POLICY_ARN}" \
+    --policy-document "file://${POLICY_FILE}" --set-as-default >/dev/null
 fi
 echo "Policy ARN: ${POLICY_ARN}"
 
