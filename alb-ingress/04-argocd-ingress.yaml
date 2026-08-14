@@ -3,6 +3,12 @@
 ## too; this is additive). Requires 04-argocd-server-insecure-patch.yaml
 ## applied first, or the ALB's plain-HTTP health checks against
 ## argocd-server will fail (it expects TLS on 8080 otherwise).
+##
+## PATH-based, not host-based: no DNS/Route53 needed, works off the bare
+## ALB DNS name immediately. Requires argocd-server itself to know it's
+## being served under a sub-path (server.basehref / server.rootpath in
+## argocd-cmd-params-cm — see docs/11-alb-exposure.md), or its own
+## JS/asset references break (they'd assume they're at "/").
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -30,10 +36,9 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-    - host: argocd.nutriai.example.com
-      http:
+    - http:
         paths:
-          - path: /
+          - path: /argocd
             pathType: Prefix
             backend:
               service:
