@@ -5,6 +5,13 @@ global:
   namespace: nutriai-prod
   environment: prod
   imageRegistry: "733236986490.dkr.ecr.us-east-1.amazonaws.com"
+
+# IRSA role for nutriai-app-sa — grants bedrock:InvokeModel* to every pod
+# using this ServiceAccount (all 9 services share one SA; scope is
+# accordingly broad, not just diet/document-service — tighten with a
+# per-service SA if that matters for your use).
+serviceAccount:
+  eksRoleArn: "arn:aws:iam::733236986490:role/eksctl-murali-test-cluster-addon-iamserviceac-Role1-nDkCiLQfvrVy"
 # ArgoCD renders this chart straight from git — it cannot see the git-ignored
 # values-secrets.yaml used for local `helm install` demos. In the GitOps path,
 # real secret values MUST come from AWS Secrets Manager via External Secrets
