@@ -1,7 +1,8 @@
-## Child Application — production. Manual sync only (no `automated:` block):
-## every change is reviewed and applied deliberately via
-## `argocd app sync nutriai-prod` or the UI's Sync button, never auto-applied.
-## ArgoCD still detects and reports drift (shows OutOfSync) continuously.
+## Child Application — production. Auto-sync + self-heal + prune enabled
+## per explicit request — a git push to main now rolls out automatically,
+## no manual `argocd app sync` step needed. (Previously manual-only, matching
+## the "review every prod change" convention this was ported from — flip
+## the `automated:` block back off if you want that safety net again.)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -23,6 +24,9 @@ spec:
     server: "https://kubernetes.default.svc"
     namespace: nutriai-prod
   syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
