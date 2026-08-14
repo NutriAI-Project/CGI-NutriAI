@@ -16,9 +16,9 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: nutriai-alb
     alb.ingress.kubernetes.io/group.order: "20"
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/certificate-arn: "<ACM_CERTIFICATE_ARN>"
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # HTTP-only until a real ACM cert exists — see 03-nutriai-gateway-ingress.yaml's
+    # comment for why the placeholder cert ARN breaks the listener outright.
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
     alb.ingress.kubernetes.io/healthcheck-port: "8080"
     alb.ingress.kubernetes.io/backend-protocol: HTTP
