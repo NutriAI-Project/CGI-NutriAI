@@ -18,19 +18,24 @@ metadata:
     # instead of provisioning a second one. Rules are ordered by priority.
     alb.ingress.kubernetes.io/group.name: nutriai-alb
     alb.ingress.kubernetes.io/group.order: "10"
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    # Replace with a real ACM cert ARN to serve HTTPS; safe to leave unset
-    # to prove HTTP connectivity first (the controller then just skips the
-    # 443 listener for this rule).
-    alb.ingress.kubernetes.io/certificate-arn: "<ACM_CERTIFICATE_ARN>"
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # HTTP-only until a real ACM cert exists — the placeholder ARN below
+    # is not valid and the controller rejects the listener outright if a
+    # certificate-arn annotation is present but unparsable, rather than
+    # silently skipping it. Add certificate-arn + change listen-ports back
+    # to include HTTPS + ssl-redirect once you have a real cert (README §
+    # "An ACM certificate for HTTPS").
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
     alb.ingress.kubernetes.io/healthcheck-path: /
     alb.ingress.kubernetes.io/healthcheck-port: "80"
 spec:
   ingressClassName: alb
   rules:
-    - host: app.nutriai.example.com
-      http:
+    # No `host:` — matches any Host header, so the bare ALB DNS name works
+    # directly for testing with no DNS/Route53 setup required. Add a host
+    # rule back (see README §6) once you point a real domain at the ALB —
+    # group.order 10 still lets it coexist with argocd-server's host-scoped
+    # rule below.
+    - http:
         paths:
           - path: /
             pathType: Prefix
